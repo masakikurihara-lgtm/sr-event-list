@@ -8,8 +8,8 @@ import time
 HEADERS = {"User-Agent": "Mozilla/5.0"}
 # イベント検索APIのURL
 API_EVENT_SEARCH_URL = "https://www.showroom-live.com/api/event/search"
-# イベントランキング情報APIのURL（参加ルーム数取得用）
-API_EVENT_RANKING_URL = "https://www.showroom-live.com/api/event/{event_url_key}/ranking"
+# イベントルームリストAPIのURL（参加ルーム数取得用）
+API_EVENT_ROOM_LIST_URL = "https://www.showroom-live.com/api/event/room_list"
 # SHOWROOMのイベントページのベースURL
 EVENT_PAGE_BASE_URL = "https://www.showroom-live.com/event/"
 
@@ -50,13 +50,13 @@ def get_events(statuses):
     return all_events
 
 @st.cache_data(ttl=300)  # 5分間キャッシュを保持
-def get_total_entries(event_url_key):
+def get_total_entries(event_id):
     """
     指定されたイベントの総参加ルーム数を取得します。
     """
-    url = API_EVENT_RANKING_URL.format(event_url_key=event_url_key)
+    params = {"event_id": event_id}
     try:
-        response = requests.get(url, headers=HEADERS, timeout=10)
+        response = requests.get(API_EVENT_ROOM_LIST_URL, headers=HEADERS, params=params, timeout=10)
         # 404エラーは参加者情報がない場合なので正常系として扱う
         if response.status_code == 404:
             return 0
@@ -77,11 +77,11 @@ def display_event_info(event):
     1つのイベント情報をStreamlitのUIに表示します。
     """
     # 必要な情報が欠けている場合は表示しない
-    if not all(k in event for k in ['image_m', 'event_name', 'event_url_key', 'started_at', 'ended_at']):
+    if not all(k in event for k in ['image_m', 'event_name', 'event_url_key', 'event_id', 'started_at', 'ended_at']):
         return
 
     # 参加ルーム数を取得
-    total_entries = get_total_entries(event['event_url_key'])
+    total_entries = get_total_entries(event['event_id'])
 
     # UIのレイアウトを定義（左に画像、右に情報）
     col1, col2 = st.columns([1, 4])
