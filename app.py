@@ -5,7 +5,6 @@ import time
 import pytz
 import pandas as pd
 import io
-from bs4 import BeautifulSoup
 import re
 
 # 日本時間(JST)のタイムゾーンを設定
@@ -22,8 +21,10 @@ API_EVENT_ROOM_LIST_URL = "https://www.showroom-live.com/api/event/room_list"
 EVENT_PAGE_BASE_URL = "https://www.showroom-live.com/event/"
 #MKsoulルームリスト
 ROOM_LIST_URL = "https://mksoul-pro.com/showroom/file/room_list.csv"
-# 過去イベントデータファイルのURLを格納しているディレクトリのURL
-PAST_EVENT_DATA_DIR_URL = "https://mksoul-pro.com/showroom/file/"
+# 過去イベントデータファイルのURLを格納しているインデックスファイルのURL
+PAST_EVENT_INDEX_URL = "https://mksoul-pro.com/showroom/file/sr-event-archive-list-index.txt"
+
+
 # --- データ取得関数 ---
 
 if "authenticated" not in st.session_state:  #認証用
@@ -63,57 +64,39 @@ def get_events(statuses):
                 break
     return all_events
 
-@st.cache_data(ttl=3600)  # 1時間キャッシュを保持
-def find_past_event_urls(dir_url):
+@st.cache_data(ttl=600)
+def get_past_events_from_files():
     """
-    ディレクトリURLから過去イベントのCSVファイルURLをすべて取得します。
-    """
-    urls = []
-    try:
-        response = requests.get(dir_url, headers=HEADERS, timeout=10)
-        response.raise_for_status()
-        # lxmlパーサーを指定
-        soup = BeautifulSoup(response.text, 'lxml')
-        
-        # 'showroom_events_'で始まるリンクを探す
-        for link in soup.find_all('a', href=True):
-            href = link['href']
-            if re.match(r'showroom_events_\d{8}_\d{6}\.csv', href):
-                full_url = dir_url + href
-                urls.append(full_url)
-    except requests.exceptions.RequestException as e:
-        st.error(f"URLリストの取得中にエラーが発生しました: {e}")
-    except Exception as e:
-        st.error(f"URLリストの解析中にエラーが発生しました: {e}")
-    
-    return sorted(urls, reverse=True)
-
-
-@st.cache_data(ttl=600) # キャッシュ機能を削除
-def get_past_events_from_files(urls):
-    """
-    指定されたURLから過去のイベントデータを取得し、マージ・重複排除します。
+    インデックスファイルから過去のイベントデータのURLリストを取得し、
+    各URLからデータを取得してマージ・重複排除します。
     """
     all_past_events = pd.DataFrame()
     column_names = [
         "event_id", "is_event_block", "is_entry_scope_inner", "event_name",
         "image_m", "started_at", "ended_at", "event_url_key", "show_ranking"
     ]
+    
+    # インデックスファイルからURLリストを取得
+    urls = []
+    try:
+        response = requests.get(PAST_EVENT_INDEX_URL, headers=HEADERS, timeout=10)
+        response.raise_for_status()
+        urls = response.text.strip().split('\n')
+    except requests.exceptions.RequestException as e:
+        st.warning(f"インデックスファイル取得中にエラーが発生しました: {e}")
+        return all_past_events.to_dict('records')
 
+    # 各URLからCSVデータを取得
     for url in urls:
         try:
-            response = requests.get(url, headers=HEADERS, timeout=10)
+            response = requests.get(url.strip(), headers=HEADERS, timeout=10)
+            if response.status_code == 404:
+                continue
             response.raise_for_status()
             
-            # テキストとして読み込み、エンコーディングを指定
             csv_text = response.content.decode('utf-8-sig')
-            
-            # 文字列をStringIOオブジェクトに変換
             csv_file_like_object = io.StringIO(csv_text)
-            
-            # DataFrameとして読み込み
             df = pd.read_csv(csv_file_like_object, header=None, names=column_names)
-            # 'is_entry_scope_inner' をブール型に変換
             df['is_entry_scope_inner'] = df['is_entry_scope_inner'].astype(str).str.lower().str.strip() == 'true'
 
             all_past_events = pd.concat([all_past_events, df], ignore_index=True)
@@ -132,11 +115,9 @@ def get_past_events_from_files(urls):
         all_past_events.drop_duplicates(subset=["event_id"], keep='first', inplace=True)
         # 'ended_at' が現在よりも過去のものを抽出
         now_timestamp = int(datetime.now(JST).timestamp())
-        # 注意点: ここで `ended_at` が現在のタイムスタンプよりも未来であれば、フィルタリングにより表示されません。
         all_past_events = all_past_events[all_past_events['ended_at'] < now_timestamp]
     
     return all_past_events.to_dict('records')
-
 
 @st.cache_data(ttl=300)  # 5分間キャッシュを保持
 def get_total_entries(event_id):
@@ -223,7 +204,6 @@ def main():
         layout="wide"
     )
 
-    #st.title("🎤 SHOWROOM イベント一覧")
     st.markdown("<h1 style='font-size:2.5em;'>🎤 SHOWROOM イベント一覧</h1>", unsafe_allow_html=True)    
     st.write("")
 
@@ -327,10 +307,8 @@ def main():
     # 「終了(BU)」のデータ取得
     if use_past_bu:
         with st.spinner("過去のイベントデータを取得・処理中..."):
-            past_urls = find_past_event_urls(PAST_EVENT_DATA_DIR_URL)
-            past_events = get_past_events_from_files(past_urls)
+            past_events = get_past_events_from_files()
             for event in past_events:
-                # 辞書に追加することで、既存のイベントIDのデータを上書きし重複を排除
                 unique_events_dict[event['event_id']] = event
 
     # 辞書の値をリストに変換して、フィルタリング処理に進む
@@ -537,8 +515,8 @@ def main():
                     unsafe_allow_html=True
                 )
 
-            st.markdown("---")        
-
+            st.markdown("---")
+            
 
 if __name__ == "__main__":
     main()
