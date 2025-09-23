@@ -94,21 +94,37 @@ def display_event_info(event):
         st.image(event['image_m'])
 
     with col2:
-        # イベント名をリンク付きで表示
-        event_url = f"{EVENT_PAGE_BASE_URL}{event['event_url_key']}"
-        st.markdown(f"**[{event['event_name']}]({event_url})**")
-        
-        # 対象者情報を取得
-        target_info = "対象者限定" if event.get("is_entry_scope_inner") else "全ライバー"
-        st.write(f"**対象:** {target_info}")
+        # イベント情報を表示するコンテナ
+        with st.container():
+            st.markdown(
+                f"""
+                <style>
+                .event-info p {{
+                    margin: 0;
+                    padding: 0;
+                    line-height: 1.2;
+                }}
+                </style>
+                <div class="event-info">
+                """,
+                unsafe_allow_html=True
+            )
+            # イベント名をリンク付きで表示
+            event_url = f"{EVENT_PAGE_BASE_URL}{event['event_url_key']}"
+            st.markdown(f"**[{event['event_name']}]({event_url})**")
+            
+            # 対象者情報を取得
+            target_info = "対象者限定" if event.get("is_entry_scope_inner") else "全ライバー"
+            st.write(f"**対象:** {target_info}")
 
-        # イベント期間をフォーマットして表示
-        start_date = datetime.fromtimestamp(event['started_at'], JST).strftime('%Y/%m/%d %H:%M')
-        end_date = datetime.fromtimestamp(event['ended_at'], JST).strftime('%Y/%m/%d %H:%M')
-        st.write(f"**期間:** {start_date} - {end_date}")
+            # イベント期間をフォーマットして表示
+            start_date = datetime.fromtimestamp(event['started_at'], JST).strftime('%Y/%m/%d %H:%M')
+            end_date = datetime.fromtimestamp(event['ended_at'], JST).strftime('%Y/%m/%d %H:%M')
+            st.write(f"**期間:** {start_date} - {end_date}")
 
-        # 参加ルーム数を表示
-        st.write(f"**参加ルーム数:** {total_entries}")
+            # 参加ルーム数を表示
+            st.write(f"**参加ルーム数:** {total_entries}")
+            st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown("---")
 
