@@ -384,15 +384,16 @@ def main():
                 except Exception as e:
                     st.sidebar.error(f"データのダウンロード中にエラーが発生しました: {e}")
 
-            # タイムスタンプ変換機能を追加
+            # タイムスタンプ変換機能
             st.sidebar.markdown("---")
             st.sidebar.markdown("#### 🕒 タイムスタンプ変換")
             timestamp_input = st.sidebar.text_input(
                 "タイムスタンプを入力",
-                placeholder="例: 1754902800"
+                placeholder="例: 1754902800",
+                key="timestamp_input"
             )
 
-            if st.sidebar.button("変換"):
+            if st.sidebar.button("タイムスタンプから日時へ変換"):
                 if timestamp_input and timestamp_input.isdigit():
                     try:
                         ts = int(timestamp_input)
@@ -405,6 +406,30 @@ def main():
                         st.sidebar.error("無効なタイムスタンプです。数値を入力してください。")
                 else:
                     st.sidebar.warning("タイムスタンプを入力してください。")
+
+            # 日時からタイムスタンプへ変換
+            st.sidebar.markdown("---")
+            st.sidebar.markdown("#### 📅 日時からタイムスタンプへ変換")
+            datetime_input = st.sidebar.text_input(
+                "日時を入力 (YYYY/MM/DD HH:MM)",
+                placeholder="例: 2025/08/11 18:00",
+                key="datetime_input"
+            )
+
+            if st.sidebar.button("日時からタイムスタンプへ変換"):
+                if datetime_input:
+                    try:
+                        dt_obj = datetime.strptime(datetime_input.strip(), '%Y/%m/%d %H:%M')
+                        dt_obj = JST.localize(dt_obj)
+                        timestamp = int(dt_obj.timestamp())
+                        st.sidebar.success(
+                            f"**変換結果:**\n\n"
+                            f"**タイムスタンプ:** {timestamp}"
+                        )
+                    except ValueError:
+                        st.sidebar.error("無効な日時形式です。'YYYY/MM/DD HH:MM'形式で入力してください。")
+                else:
+                    st.sidebar.warning("日時を入力してください。")
 
         # ▲▲ 修正箇所 ▲▲
         
