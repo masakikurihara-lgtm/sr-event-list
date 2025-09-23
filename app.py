@@ -13,7 +13,7 @@ JST = pytz.timezone('Asia/Tokyo')
 
 # --- 定数定義 ---
 # APIリクエスト時に使用するヘッダー
-HEADERS = {"User-Agent": "Mozilla/5.0"}
+HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3"}
 # イベント検索APIのURL
 API_EVENT_SEARCH_URL = "https://www.showroom-live.com/api/event/search"
 # イベントルームリストAPIのURL（参加ルーム数取得用）
@@ -72,7 +72,8 @@ def find_past_event_urls(dir_url):
     try:
         response = requests.get(dir_url, headers=HEADERS, timeout=10)
         response.raise_for_status()
-        soup = BeautifulSoup(response.text, 'html.parser')
+        # lxmlパーサーを指定
+        soup = BeautifulSoup(response.text, 'lxml')
         
         # 'showroom_events_'で始まるリンクを探す
         for link in soup.find_all('a', href=True):
