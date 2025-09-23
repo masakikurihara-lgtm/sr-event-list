@@ -273,20 +273,19 @@ def main():
             options=target_options
         )
         
-        # --- mksp認証時のみ表示する特殊機能 ---
+        # --- mksp認証時のみ表示する特別機能 ---
         if st.session_state.mksp_authenticated:
             st.sidebar.header("特別機能")
-            # ダウンロードボタンを追加
             if st.sidebar.button("全イベントデータをダウンロード"):
                 try:
-                    # 開催中のイベントを全て取得
-                    with st.spinner("ダウンロード用のイベントデータを取得中..."):
-                        all_events_to_download = get_events(selected_statuses)
+                    # 全てのステータス（1:開催中, 3:開催予定, 4:終了）のイベントを全て取得
+                    all_statuses_to_download = [1, 3, 4]
+                    with st.spinner("ダウンロード用の全イベントデータを取得中..."):
+                        all_events_to_download = get_events(all_statuses_to_download)
 
                     # 必要な項目を抽出
                     events_for_df = []
                     for event in all_events_to_download:
-                        # 必須項目が揃っているか確認
                         if all(k in event for k in ["event_id", "is_event_block", "is_entry_scope_inner", "event_name", "image_m", "started_at", "ended_at", "event_url_key", "show_ranking"]):
                             event_data = {
                                 "event_id": event["event_id"],
@@ -303,7 +302,6 @@ def main():
                     
                     if events_for_df:
                         df = pd.DataFrame(events_for_df)
-                        # CSV形式に変換 (encodingをutf-8に、BOMを追加)
                         csv_data = df.to_csv(index=False).encode('utf-8-sig')
                         st.sidebar.download_button(
                             label="ダウンロード開始",
@@ -346,7 +344,7 @@ def main():
         st.markdown("---")
         # 取得したイベント情報を1つずつ表示
         for event in filtered_events:
-            col1, col2 = st.columns([1, 4])  # ← col1, col2 をここで定義
+            col1, col2 = st.columns([1, 4])
 
             with col1:
                 st.image(event['image_m'])
@@ -368,7 +366,7 @@ def main():
                     unsafe_allow_html=True
                 )
 
-                total_entries = get_total_entries(event['event_id'])  # ← 参加ルーム数を再取得
+                total_entries = get_total_entries(event['event_id'])
                 st.markdown(
                     f'<div class="event-info"><strong>参加ルーム数:</strong> {total_entries}</div>',
                     unsafe_allow_html=True
