@@ -77,7 +77,8 @@ def get_past_events_from_files(urls):
         try:
             response = requests.get(url, headers=HEADERS, timeout=10)
             response.raise_for_status()
-            df = pd.read_csv(io.StringIO(response.text), header=None, names=column_names)
+            # encoding='utf-8-sig' を指定してUTF-8 BOMに対応
+            df = pd.read_csv(io.StringIO(response.text), header=None, names=column_names, encoding='utf-8-sig')
             all_past_events = pd.concat([all_past_events, df], ignore_index=True)
         except requests.exceptions.RequestException as e:
             st.warning(f"過去イベントデータ取得中にエラーが発生しました (URL: {url}): {e}")
