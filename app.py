@@ -334,23 +334,24 @@ def main():
 
 
     # 選択されたステータスに基づいてイベント情報を取得
-    all_events = []
+    # 辞書を使って重複を確実に排除
+    unique_events_dict = {}
     if selected_statuses:
         with st.spinner("イベント情報を取得中..."):
-            all_events.extend(get_events(selected_statuses))
+            fetched_events = get_events(selected_statuses)
+            for event in fetched_events:
+                unique_events_dict[event['event_id']] = event
     
     # 「終了(BU)」のデータ取得
     if use_past_bu:
         with st.spinner("過去のイベントデータを取得・処理中..."):
             past_events = get_past_events_from_files(PAST_EVENT_DATA_URLS)
-            all_events.extend(past_events)
+            for event in past_events:
+                # 辞書に追加することで、既存のイベントIDのデータを上書きし重複を排除
+                unique_events_dict[event['event_id']] = event
 
-
-    # 重複削除
-    if all_events:
-        # DataFrameに変換して重複を削除し、リストに戻す
-        df_all_events = pd.DataFrame(all_events).drop_duplicates(subset=["event_id"], keep='first')
-        all_events = df_all_events.to_dict('records')
+    # 辞書の値をリストに変換して、フィルタリング処理に進む
+    all_events = list(unique_events_dict.values())
 
     if not all_events:
         st.info("該当するイベントはありませんでした。")
