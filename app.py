@@ -420,9 +420,9 @@ def main():
                 if datetime_input:
                     try:
                         # タイムゾーンを考慮してdatetimeオブジェクトを生成
-                        # astimezone()を使ってタイムゾーン付きのオブジェクトに変換
-                        dt_obj = datetime.strptime(datetime_input.strip(), '%Y/%m/%d %H:%M')
-                        timestamp = int(JST.localize(dt_obj, is_dst=None).timestamp())
+                        # 日本時間として解釈
+                        dt_obj = JST.localize(datetime.strptime(datetime_input.strip(), '%Y/%m/%d %H:%M'), is_dst=None)
+                        timestamp = int(dt_obj.timestamp())
                         st.sidebar.success(
                             f"**変換結果:**\n\n"
                             f"**タイムスタンプ:** {timestamp}"
