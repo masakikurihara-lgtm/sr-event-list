@@ -84,10 +84,11 @@ def get_past_events_from_files(urls):
             # 文字列をStringIOオブジェクトに変換
             csv_file_like_object = io.StringIO(csv_text)
             
-            # DataFrameとして読み込み、`is_entry_scope_inner`をbool型に変換
+            # DataFrameとして読み込み
             df = pd.read_csv(csv_file_like_object, header=None, names=column_names)
-            df['is_entry_scope_inner'] = df['is_entry_scope_inner'].astype(bool)
-            
+            # 'is_entry_scope_inner' をブール型に変換
+            df['is_entry_scope_inner'] = df['is_entry_scope_inner'].astype(str).str.lower().str.strip() == 'true'
+
             all_past_events = pd.concat([all_past_events, df], ignore_index=True)
         except requests.exceptions.RequestException as e:
             st.warning(f"過去イベントデータ取得中にエラーが発生しました (URL: {url}): {e}")
