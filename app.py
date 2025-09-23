@@ -410,6 +410,7 @@ def main():
                 if e.get('is_entry_scope_inner') in selected_target_values
             ]
 
+        # 修正: 件数表示をフィルタリング後のfiltered_eventsの長さに変更
         st.success(f"{len(filtered_events)}件のイベントが見つかりました。")
         st.markdown("---")
         # 取得したイベント情報を1つずつ表示
