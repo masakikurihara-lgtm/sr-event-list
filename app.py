@@ -5,6 +5,8 @@ import time
 import pytz
 import pandas as pd
 import io
+from bs4 import BeautifulSoup
+import re
 
 # 日本時間(JST)のタイムゾーンを設定
 JST = pytz.timezone('Asia/Tokyo')
@@ -20,16 +22,14 @@ API_EVENT_ROOM_LIST_URL = "https://www.showroom-live.com/api/event/room_list"
 EVENT_PAGE_BASE_URL = "https://www.showroom-live.com/event/"
 #MKsoulルームリスト
 ROOM_LIST_URL = "https://mksoul-pro.com/showroom/file/room_list.csv"
-# 過去イベントデータファイルのURLリスト
-PAST_EVENT_DATA_URLS = [
-    "https://mksoul-pro.com/showroom/file/showroom_events_20250923_175019.csv"
-]
+# 過去イベントデータファイルのURLを格納しているディレクトリのURL
+PAST_EVENT_DATA_DIR_URL = "https://mksoul-pro.com/showroom/file/"
 # --- データ取得関数 ---
 
 if "authenticated" not in st.session_state:  #認証用
     st.session_state.authenticated = False  #認証用
 
-#@st.cache_data(ttl=600)  # 10分間キャッシュを保持
+@st.cache_data(ttl=600)  # 10分間キャッシュを保持
 def get_events(statuses):
     """
     指定されたステータスのイベントリストをAPIから取得します。
@@ -63,7 +63,32 @@ def get_events(statuses):
                 break
     return all_events
 
-@st.cache_data(ttl=600)  # 10分間キャッシュを保持
+@st.cache_data(ttl=3600)  # 1時間キャッシュを保持
+def find_past_event_urls(dir_url):
+    """
+    ディレクトリURLから過去イベントのCSVファイルURLをすべて取得します。
+    """
+    urls = []
+    try:
+        response = requests.get(dir_url, headers=HEADERS, timeout=10)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        # 'showroom_events_'で始まるリンクを探す
+        for link in soup.find_all('a', href=True):
+            href = link['href']
+            if re.match(r'showroom_events_\d{8}_\d{6}\.csv', href):
+                full_url = dir_url + href
+                urls.append(full_url)
+    except requests.exceptions.RequestException as e:
+        st.error(f"URLリストの取得中にエラーが発生しました: {e}")
+    except Exception as e:
+        st.error(f"URLリストの解析中にエラーが発生しました: {e}")
+    
+    return sorted(urls, reverse=True)
+
+
+@st.cache_data(ttl=600) # キャッシュ機能を削除
 def get_past_events_from_files(urls):
     """
     指定されたURLから過去のイベントデータを取得し、マージ・重複排除します。
@@ -73,6 +98,7 @@ def get_past_events_from_files(urls):
         "event_id", "is_event_block", "is_entry_scope_inner", "event_name",
         "image_m", "started_at", "ended_at", "event_url_key", "show_ranking"
     ]
+
     for url in urls:
         try:
             response = requests.get(url, headers=HEADERS, timeout=10)
@@ -105,8 +131,7 @@ def get_past_events_from_files(urls):
         all_past_events.drop_duplicates(subset=["event_id"], keep='first', inplace=True)
         # 'ended_at' が現在よりも過去のものを抽出
         now_timestamp = int(datetime.now(JST).timestamp())
-        # ▼ 注意点: ここで `ended_at` が現在のタイムスタンプよりも未来であれば、フィルタリングにより表示されません。
-        # 例えば、データ内のイベント終了日が今日よりも未来の場合、この関数はそれらを「まだ終了していない」と判断します。
+        # 注意点: ここで `ended_at` が現在のタイムスタンプよりも未来であれば、フィルタリングにより表示されません。
         all_past_events = all_past_events[all_past_events['ended_at'] < now_timestamp]
     
     return all_past_events.to_dict('records')
@@ -301,7 +326,8 @@ def main():
     # 「終了(BU)」のデータ取得
     if use_past_bu:
         with st.spinner("過去のイベントデータを取得・処理中..."):
-            past_events = get_past_events_from_files(PAST_EVENT_DATA_URLS)
+            past_urls = find_past_event_urls(PAST_EVENT_DATA_DIR_URL)
+            past_events = get_past_events_from_files(past_urls)
             for event in past_events:
                 # 辞書に追加することで、既存のイベントIDのデータを上書きし重複を排除
                 unique_events_dict[event['event_id']] = event
@@ -345,7 +371,6 @@ def main():
             options=target_options
         )
         
-        # ▼▼ 修正箇所 ▼▼
         # 認証されていればダウンロードボタンとタイムスタンプ変換機能をここに配置
         if st.session_state.mksp_authenticated:
             st.sidebar.header("特別機能")
@@ -449,7 +474,6 @@ def main():
                         st.sidebar.error("無効な日時形式です。'YYYY/MM/DD HH:MM'形式で入力してください。")
                 else:
                     st.sidebar.warning("日時を入力してください。")
-        # ▲▲ 修正箇所 ▲▲
         
         # フィルタリングされたイベントリスト
         filtered_events = all_events
