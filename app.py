@@ -100,15 +100,15 @@ def display_event_info(event):
         
         # 対象者情報を取得
         target_info = "対象者限定" if event.get("is_entry_scope_inner") else "全ライバー"
-        st.markdown(f'<div style="margin-top: -1em;">**対象:** {target_info}</div>', unsafe_allow_html=True)
+        st.write(f"**対象:** {target_info}")
 
         # イベント期間をフォーマットして表示
         start_date = datetime.fromtimestamp(event['started_at'], JST).strftime('%Y/%m/%d %H:%M')
         end_date = datetime.fromtimestamp(event['ended_at'], JST).strftime('%Y/%m/%d %H:%M')
-        st.markdown(f'<div style="margin-top: -1em;">**期間:** {start_date} - {end_date}</div>', unsafe_allow_html=True)
+        st.write(f"**期間:** {start_date} - {end_date}")
 
         # 参加ルーム数を表示
-        st.markdown(f'<div style="margin-top: -1em;">**参加ルーム数:** {total_entries}</div>', unsafe_allow_html=True)
+        st.write(f"**参加ルーム数:** {total_entries}")
 
     st.markdown("---")
 
