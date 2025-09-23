@@ -283,29 +283,13 @@ def main():
     if use_finished:
         selected_statuses.append(status_options["終了"])
 
+
+    # --- イベント情報表示 ---
+    # `st.stop()`の条件を修正し、ダウンロードボタンの表示を独立させる
     if not selected_statuses and not use_past_bu:
         st.warning("表示するステータスをサイドバーで1つ以上選択してください。")
     
-    # --- フィルタリングオプション ---
-    # 開始日フィルタの選択肢を生成
-    # ここではイベントデータをまだ取得していないので、フィルタはイベント取得後に表示する
-    
-    # 期間でフィルタ
-    duration_options = ["3日以内", "1週間", "10日", "2週間", "その他"]
-    selected_durations = st.sidebar.multiselect(
-        "期間でフィルタ",
-        options=duration_options
-    )
-
-    # 対象でフィルタ
-    target_options = ["全ライバー", "対象者限定"]
-    selected_targets = st.sidebar.multiselect(
-        "対象でフィルタ",
-        options=target_options
-    )
-    
-    # ▼▼ 修正箇所 ▼▼
-    # 認証されていればダウンロードボタンをここに配置
+    # 認証されていればダウンロードボタンは常に表示
     if st.session_state.mksp_authenticated:
         st.sidebar.header("特別機能")
         if st.sidebar.button("全イベントデータをダウンロード"):
@@ -344,7 +328,6 @@ def main():
                     st.sidebar.warning("ダウンロード可能なイベントデータがありませんでした。")
             except Exception as e:
                 st.sidebar.error(f"データのダウンロード中にエラーが発生しました: {e}")
-    # ▲▲ 修正箇所 ▲▲
     
     if not selected_statuses and not use_past_bu:
         st.stop()
@@ -389,6 +372,20 @@ def main():
         selected_start_dates = st.sidebar.multiselect(
             "開始日でフィルタ",
             options=list(date_options.keys())
+        )
+
+        # 期間でフィルタ
+        duration_options = ["3日以内", "1週間", "10日", "2週間", "その他"]
+        selected_durations = st.sidebar.multiselect(
+            "期間でフィルタ",
+            options=duration_options
+        )
+
+        # 対象でフィルタ
+        target_options = ["全ライバー", "対象者限定"]
+        selected_targets = st.sidebar.multiselect(
+            "対象でフィルタ",
+            options=target_options
         )
         
         # フィルタリングされたイベントリスト
