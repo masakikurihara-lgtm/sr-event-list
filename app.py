@@ -410,7 +410,8 @@ def main():
                 e for e in filtered_events
                 if e.get('is_entry_scope_inner') in selected_target_values
             ]
-
+        
+        st.markdown("重複データをイベントIDで除外して表示しています。")
         # 修正: 件数表示をフィルタリング後のfiltered_eventsの長さに変更
         st.success(f"{len(filtered_events)}件のイベントが見つかりました。")
         st.markdown("---")
