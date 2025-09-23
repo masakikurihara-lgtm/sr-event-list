@@ -149,7 +149,7 @@ def main():
         .event-info p, .event-info li, .event-info {
             line-height: 1.6;
             margin-top: 0.0rem;
-            margin-bottom: 0.3rem;
+            margin-bottom: 0.4rem;
         }
         </style>
         """,
