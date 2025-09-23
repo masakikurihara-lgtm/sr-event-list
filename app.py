@@ -233,7 +233,47 @@ def main():
     # --- イベント情報表示 ---
     if not selected_statuses:
         st.warning("表示するステータスをサイドバーで1つ以上選択してください。")
+        # 選択されたステータスがない場合でも、認証されていればダウンロードボタンは表示
+        if st.session_state.mksp_authenticated:
+            st.sidebar.header("特別機能")
+            if st.sidebar.button("全イベントデータをダウンロード"):
+                try:
+                    all_statuses_to_download = [1, 3, 4]
+                    with st.spinner("ダウンロード用の全イベントデータを取得中..."):
+                        all_events_to_download = get_events(all_statuses_to_download)
+                    events_for_df = []
+                    for event in all_events_to_download:
+                        if all(k in event for k in ["event_id", "is_event_block", "is_entry_scope_inner", "event_name", "image_m", "started_at", "ended_at", "event_url_key", "show_ranking"]):
+                            event_data = {
+                                "event_id": event["event_id"],
+                                "is_event_block": event["is_event_block"],
+                                "is_entry_scope_inner": event["is_entry_scope_inner"],
+                                "event_name": event["event_name"],
+                                "image_m": event["image_m"],
+                                "started_at": event["started_at"], # Unixタイムスタンプ形式に戻す
+                                "ended_at": event["ended_at"],     # Unixタイムスタンプ形式に戻す
+                                "event_url_key": event["event_url_key"],
+                                "show_ranking": event["show_ranking"]
+                            }
+                            events_for_df.append(event_data)
+                    
+                    if events_for_df:
+                        df = pd.DataFrame(events_for_df)
+                        csv_data = df.to_csv(index=False).encode('utf-8-sig')
+                        st.sidebar.download_button(
+                            label="ダウンロード開始",
+                            data=csv_data,
+                            file_name=f"showroom_events_{datetime.now(JST).strftime('%Y%m%d_%H%M%S')}.csv",
+                            mime="text/csv",
+                            key="download_button_trigger",
+                        )
+                        st.sidebar.success("ダウンロード準備ができました。上記のボタンをクリックしてください。")
+                    else:
+                        st.sidebar.warning("ダウンロード可能なイベントデータがありませんでした。")
+                except Exception as e:
+                    st.sidebar.error(f"データのダウンロード中にエラーが発生しました: {e}")
         st.stop()
+
 
     # 選択されたステータスに基づいてイベント情報を取得
     with st.spinner("イベント情報を取得中..."):
@@ -278,12 +318,9 @@ def main():
             st.sidebar.header("特別機能")
             if st.sidebar.button("全イベントデータをダウンロード"):
                 try:
-                    # 全てのステータス（1:開催中, 3:開催予定, 4:終了）のイベントを全て取得
                     all_statuses_to_download = [1, 3, 4]
                     with st.spinner("ダウンロード用の全イベントデータを取得中..."):
                         all_events_to_download = get_events(all_statuses_to_download)
-
-                    # 必要な項目を抽出
                     events_for_df = []
                     for event in all_events_to_download:
                         if all(k in event for k in ["event_id", "is_event_block", "is_entry_scope_inner", "event_name", "image_m", "started_at", "ended_at", "event_url_key", "show_ranking"]):
@@ -293,8 +330,8 @@ def main():
                                 "is_entry_scope_inner": event["is_entry_scope_inner"],
                                 "event_name": event["event_name"],
                                 "image_m": event["image_m"],
-                                "started_at": datetime.fromtimestamp(event["started_at"], JST).strftime('%Y/%m/%d %H:%M'),
-                                "ended_at": datetime.fromtimestamp(event["ended_at"], JST).strftime('%Y/%m/%d %H:%M'),
+                                "started_at": event["started_at"], # Unixタイムスタンプ形式に戻す
+                                "ended_at": event["ended_at"],     # Unixタイムスタンプ形式に戻す
                                 "event_url_key": event["event_url_key"],
                                 "show_ranking": event["show_ranking"]
                             }
