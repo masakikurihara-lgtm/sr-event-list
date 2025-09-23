@@ -344,7 +344,7 @@ def main():
         )
         
         # ▼▼ 修正箇所 ▼▼
-        # 認証されていればダウンロードボタンをここに配置
+        # 認証されていればダウンロードボタンとタイムスタンプ変換機能をここに配置
         if st.session_state.mksp_authenticated:
             st.sidebar.header("特別機能")
             if st.sidebar.button("全イベントデータをダウンロード"):
@@ -383,6 +383,29 @@ def main():
                         st.sidebar.warning("ダウンロード可能なイベントデータがありませんでした。")
                 except Exception as e:
                     st.sidebar.error(f"データのダウンロード中にエラーが発生しました: {e}")
+
+            # タイムスタンプ変換機能を追加
+            st.sidebar.markdown("---")
+            st.sidebar.markdown("#### 🕒 タイムスタンプ変換")
+            timestamp_input = st.sidebar.text_input(
+                "タイムスタンプを入力",
+                placeholder="例: 1754902800"
+            )
+
+            if st.sidebar.button("変換"):
+                if timestamp_input and timestamp_input.isdigit():
+                    try:
+                        ts = int(timestamp_input)
+                        converted_dt = datetime.fromtimestamp(ts, JST)
+                        st.sidebar.success(
+                            f"**変換結果:**\n\n"
+                            f"**日時:** {converted_dt.strftime('%Y/%m/%d %H:%M:%S')}"
+                        )
+                    except ValueError:
+                        st.sidebar.error("無効なタイムスタンプです。数値を入力してください。")
+                else:
+                    st.sidebar.warning("タイムスタンプを入力してください。")
+
         # ▲▲ 修正箇所 ▲▲
         
         # フィルタリングされたイベントリスト
