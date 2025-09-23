@@ -29,7 +29,7 @@ PAST_EVENT_DATA_URLS = [
 if "authenticated" not in st.session_state:  #認証用
     st.session_state.authenticated = False  #認証用
 
-@st.cache_data(ttl=600)  # 10分間キャッシュを保持
+#@st.cache_data(ttl=600)  # 10分間キャッシュを保持
 def get_events(statuses):
     """
     指定されたステータスのイベントリストをAPIから取得します。
