@@ -141,6 +141,20 @@ def main():
     st.title("🎤 SHOWROOM イベント一覧ツール")
     st.write("SHOWROOMで開催されているイベントの情報を一覧で確認できます。")
 
+    # 行間と余白の調整
+    st.markdown(
+        """
+        <style>
+        /* イベント詳細の行間を詰める */
+        .event-info p, .event-info li, .event-info {
+            line-height: 1.2;
+            margin-top: 0.1rem;
+            margin-bottom: 0.1rem;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+
     # --- フィルタリング機能 ---
     st.sidebar.header("表示フィルタ")
     status_options = {
