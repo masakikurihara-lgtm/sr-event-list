@@ -94,22 +94,22 @@ def display_event_info(event):
         st.image(event['image_m'])
 
     with col2:
-        # イベント情報をHTMLで生成し、行間を狭める
+        # イベント名をリンク付きで表示
         event_url = f"{EVENT_PAGE_BASE_URL}{event['event_url_key']}"
+        st.markdown(f"**[{event['event_name']}]({event_url})**")
+        
+        # 対象者情報を取得
         target_info = "対象者限定" if event.get("is_entry_scope_inner") else "全ライバー"
+        st.write(f"**対象:** {target_info}")
+
+        # イベント期間をフォーマットして表示
         start_date = datetime.fromtimestamp(event['started_at'], JST).strftime('%Y/%m/%d %H:%M')
         end_date = datetime.fromtimestamp(event['ended_at'], JST).strftime('%Y/%m/%d %H:%M')
+        st.write(f"**期間:** {start_date} - {end_date}")
 
-        html_content = f"""
-        <div style="line-height: 1.2; font-family: sans-serif;">
-            <p style="margin: 0; padding: 0;"><a href="{event_url}" target="_blank" style="font-weight: bold; text-decoration: none; color: inherit;">{event['event_name']}</a></p>
-            <p style="margin: 0; padding: 0;"><b>対象:</b> {target_info}</p>
-            <p style="margin: 0; padding: 0;"><b>期間:</b> {start_date} - {end_date}</p>
-            <p style="margin: 0; padding: 0;"><b>参加ルーム数:</b> {total_entries}</p>
-        </div>
-        """
-        st.markdown(html_content, unsafe_allow_html=True)
-    
+        # 参加ルーム数を表示
+        st.write(f"**参加ルーム数:** {total_entries}")
+
     st.markdown("---")
 
 def get_duration_category(start_ts, end_ts):
