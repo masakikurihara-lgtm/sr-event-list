@@ -248,19 +248,35 @@ def main():
         st.markdown("---")
         # 取得したイベント情報を1つずつ表示
         for event in filtered_events:
-            #display_event_info(event)
+            col1, col2 = st.columns([1, 4])  # ← col1, col2 をここで定義
+
+            with col1:
+                st.image(event['image_m'])
+
             with col2:
                 event_url = f"{EVENT_PAGE_BASE_URL}{event['event_url_key']}"
-                st.markdown(f'<div class="event-info"><strong><a href="{event_url}">{event["event_name"]}</a></strong></div>', unsafe_allow_html=True)
+                st.markdown(
+                    f'<div class="event-info"><strong><a href="{event_url}">{event["event_name"]}</a></strong></div>',
+                    unsafe_allow_html=True
+                )
 
                 target_info = "対象者限定" if event.get("is_entry_scope_inner") else "全ライバー"
                 st.markdown(f'<div class="event-info"><strong>対象:</strong> {target_info}</div>', unsafe_allow_html=True)
 
                 start_date = datetime.fromtimestamp(event['started_at'], JST).strftime('%Y/%m/%d %H:%M')
                 end_date = datetime.fromtimestamp(event['ended_at'], JST).strftime('%Y/%m/%d %H:%M')
-                st.markdown(f'<div class="event-info"><strong>期間:</strong> {start_date} - {end_date}</div>', unsafe_allow_html=True)
+                st.markdown(
+                    f'<div class="event-info"><strong>期間:</strong> {start_date} - {end_date}</div>',
+                    unsafe_allow_html=True
+                )
 
-                st.markdown(f'<div class="event-info"><strong>参加ルーム数:</strong> {total_entries}</div>', unsafe_allow_html=True)            
+                total_entries = get_total_entries(event['event_id'])  # ← 参加ルーム数を再取得
+                st.markdown(
+                    f'<div class="event-info"><strong>参加ルーム数:</strong> {total_entries}</div>',
+                    unsafe_allow_html=True
+                )
+
+            st.markdown("---")        
 
 
 if __name__ == "__main__":
