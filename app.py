@@ -93,10 +93,14 @@ def display_event_info(event):
         # イベント名をリンク付きで表示
         event_url = f"{EVENT_PAGE_BASE_URL}{event['event_url_key']}"
         st.markdown(f"**[{event['event_name']}]({event_url})**", unsafe_allow_html=True)
+        
+        # 対象者情報を取得
+        target_info = "対象者限定" if event.get("is_entry_scope_inner") else "全ライバー"
+        st.write(f"**対象:** {target_info}")
 
         # イベント期間をフォーマットして表示
-        start_date = datetime.fromtimestamp(event['started_at']).strftime('%Y-%m-%d')
-        end_date = datetime.fromtimestamp(event['ended_at']).strftime('%Y-%m-%d')
+        start_date = datetime.fromtimestamp(event['started_at']).strftime('%Y/%m/%d %H:%M')
+        end_date = datetime.fromtimestamp(event['ended_at']).strftime('%Y/%m/%d %H:%M')
         st.write(f"**期間:** {start_date} - {end_date}")
 
         # 参加ルーム数を表示
@@ -150,10 +154,37 @@ def main():
     if not events:
         st.info("該当するイベントはありませんでした。")
     else:
-        st.success(f"{len(events)}件のイベントが見つかりました。")
+        # 開始日フィルタの選択肢を生成
+        start_dates = sorted(list(set([
+            datetime.fromtimestamp(e['started_at']).date() for e in events if 'started_at' in e
+        ])))
+        
+        # 日付と曜日の辞書を作成
+        date_options = {
+            d.strftime('%Y/%m/%d') + f"({['月', '火', '水', '木', '金', '土', '日'][d.weekday()]})": d
+            for d in start_dates
+        }
+        
+        selected_start_dates = st.sidebar.multiselect(
+            "開始日でフィルタ",
+            options=list(date_options.keys())
+        )
+        
+        # フィルタリングされたイベントリスト
+        filtered_events = []
+        if selected_start_dates:
+            selected_dates_set = {date_options[d] for d in selected_start_dates}
+            filtered_events = [
+                e for e in events 
+                if 'started_at' in e and datetime.fromtimestamp(e['started_at']).date() in selected_dates_set
+            ]
+        else:
+            filtered_events = events
+
+        st.success(f"{len(filtered_events)}件のイベントが見つかりました。")
         st.markdown("---")
         # 取得したイベント情報を1つずつ表示
-        for event in events:
+        for event in filtered_events:
             display_event_info(event)
 
 
