@@ -6,7 +6,6 @@ import pytz
 import pandas as pd
 import io
 
-
 # 日本時間(JST)のタイムゾーンを設定
 JST = pytz.timezone('Asia/Tokyo')
 
@@ -151,6 +150,9 @@ def main():
 
 
     # ▼▼ 認証ステップ ▼▼
+    if "mksp_authenticated" not in st.session_state:
+        st.session_state.mksp_authenticated = False
+        
     if not st.session_state.authenticated:
         st.markdown("### 🔑 認証コードを入力してください")
         input_room_id = st.text_input(
@@ -163,24 +165,30 @@ def main():
         # 認証ボタン
         if st.button("認証する"):
             if input_room_id:  # 入力が空でない場合のみ
-                try:
-                    response = requests.get(ROOM_LIST_URL, timeout=5)
-                    response.raise_for_status()
-                    room_df = pd.read_csv(io.StringIO(response.text), header=None)
-
-                    valid_codes = set(str(x).strip() for x in room_df.iloc[:, 0].dropna())
-
-                    if input_room_id.strip() in valid_codes:
-                        st.session_state.authenticated = True
-                        st.success("✅ 認証に成功しました。ツールを利用できます。")
-                        st.rerun()  # 認証成功後に再読み込み
-                    else:
-                        st.error("❌ 認証コードが無効です。正しい認証コードを入力してください。")
-                except Exception as e:
-                    st.error(f"認証リストを取得できませんでした: {e}")
+                if input_room_id.strip() == "mksp":
+                    st.session_state.authenticated = True
+                    st.session_state.mksp_authenticated = True
+                    st.success("✅ 特別な認証に成功しました。ツールを利用できます。")
+                    st.rerun()
+                else:
+                    try:
+                        response = requests.get(ROOM_LIST_URL, timeout=5)
+                        response.raise_for_status()
+                        room_df = pd.read_csv(io.StringIO(response.text), header=None)
+    
+                        valid_codes = set(str(x).strip() for x in room_df.iloc[:, 0].dropna())
+    
+                        if input_room_id.strip() in valid_codes:
+                            st.session_state.authenticated = True
+                            st.success("✅ 認証に成功しました。ツールを利用できます。")
+                            st.rerun()  # 認証成功後に再読み込み
+                        else:
+                            st.error("❌ 認証コードが無効です。正しい認証コードを入力してください。")
+                    except Exception as e:
+                        st.error(f"認証リストを取得できませんでした: {e}")
             else:
                 st.warning("認証コードを入力してください。")
-
+                
         # 認証が終わるまで他のUIを描画しない
         st.stop()
     # ▲▲ 認証ステップここまで ▲▲
@@ -221,6 +229,51 @@ def main():
         selected_statuses.append(status_options["開催予定"])
     if use_finished:
         selected_statuses.append(status_options["終了"])
+
+    # --- mksp認証時のみ表示する特殊機能 ---
+    if st.session_state.mksp_authenticated:
+        st.sidebar.header("特別機能")
+        # ダウンロードボタンを追加
+        if st.sidebar.button("全イベントデータをダウンロード"):
+            try:
+                # 開催中のイベントを全て取得
+                with st.spinner("ダウンロード用のイベントデータを取得中..."):
+                    all_events_to_download = get_events(selected_statuses)
+
+                # 必要な項目を抽出
+                events_for_df = []
+                for event in all_events_to_download:
+                    # 必須項目が揃っているか確認
+                    if all(k in event for k in ["event_id", "is_event_block", "is_entry_scope_inner", "event_name", "image_m", "started_at", "ended_at", "event_url_key", "show_ranking"]):
+                        event_data = {
+                            "event_id": event["event_id"],
+                            "is_event_block": event["is_event_block"],
+                            "is_entry_scope_inner": event["is_entry_scope_inner"],
+                            "event_name": event["event_name"],
+                            "image_m": event["image_m"],
+                            "started_at": datetime.fromtimestamp(event["started_at"], JST).strftime('%Y/%m/%d %H:%M'),
+                            "ended_at": datetime.fromtimestamp(event["ended_at"], JST).strftime('%Y/%m/%d %H:%M'),
+                            "event_url_key": event["event_url_key"],
+                            "show_ranking": event["show_ranking"]
+                        }
+                        events_for_df.append(event_data)
+                
+                if events_for_df:
+                    df = pd.DataFrame(events_for_df)
+                    # CSV形式に変換
+                    csv_data = df.to_csv(index=False).encode('utf-8')
+                    st.sidebar.download_button(
+                        label="ダウンロード開始",
+                        data=csv_data,
+                        file_name=f"showroom_events_{datetime.now(JST).strftime('%Y%m%d_%H%M%S')}.csv",
+                        mime="text/csv",
+                        key="download_button_trigger",
+                    )
+                    st.sidebar.success("ダウンロード準備ができました。上記のボタンをクリックしてください。")
+                else:
+                    st.sidebar.warning("ダウンロード可能なイベントデータがありませんでした。")
+            except Exception as e:
+                st.sidebar.error(f"データのダウンロード中にエラーが発生しました: {e}")
 
     # --- イベント情報表示 ---
     if not selected_statuses:
