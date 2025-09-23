@@ -1,563 +1,284 @@
 import streamlit as st
 import requests
-import pandas as pd
+from datetime import datetime, timedelta
+import time
 import pytz
-import datetime
-import io
-from streamlit_autorefresh import st_autorefresh
 
-# ページ設定
-st.set_page_config(
-    page_title="SHOWROOM 配信ログ収集ツール",
-    page_icon="🎤",
-    layout="wide",
-)
-
-# 定数
-HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-    "Accept-Language": "ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7",
-}
+# 日本時間(JST)のタイムゾーンを設定
 JST = pytz.timezone('Asia/Tokyo')
-ONLIVES_API_URL = "https://www.showroom-live.com/api/live/onlives"
-COMMENT_API_URL = "https://www.showroom-live.com/api/live/comment_log"
-GIFT_API_URL = "https://www.showroom-live.com/api/live/gift_log"
-GIFT_LIST_API_URL = "https://www.showroom-live.com/api/live/gift_list"
-FAN_LIST_API_URL = "https://www.showroom-live.com/api/active_fan/users"
-SYSTEM_COMMENT_KEYWORDS = ["SHOWROOM Management", "Earn weekly glittery rewards!", "ウィークリーグリッター特典獲得中！", "SHOWROOM運営"]
-DEFAULT_AVATAR = "https://static.showroom-live.com/image/avatar/default_avatar.png"
-ROOM_LIST_URL = "https://mksoul-pro.com/showroom/file/room_list.csv"
 
-if "authenticated" not in st.session_state:  #認証用
-    st.session_state.authenticated = False  #認証用
+# --- 定数定義 ---
+# APIリクエスト時に使用するヘッダー
+HEADERS = {"User-Agent": "Mozilla/5.0"}
+# イベント検索APIのURL
+API_EVENT_SEARCH_URL = "https://www.showroom-live.com/api/event/search"
+# イベントルームリストAPIのURL（参加ルーム数取得用）
+API_EVENT_ROOM_LIST_URL = "https://www.showroom-live.com/api/event/room_list"
+# SHOWROOMのイベントページのベースURL
+EVENT_PAGE_BASE_URL = "https://www.showroom-live.com/event/"
 
-# CSSスタイル
-CSS_STYLE = """
-<style>
-.dashboard-container {
-    height: 500px;
-    overflow-y: scroll;
-    padding-right: 15px;
-}
-.comment-item-row, .gift-item-row, .fan-info-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-.comment-avatar, .gift-avatar, .fan-avatar {
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
-    object-fit: cover;
-}
-.comment-content, .gift-content {
-    flex-grow: 1;
-    display: flex;
-    flex-direction: column;
-}
-.comment-time, .gift-time {
-    font-size: 0.8em;
-    color: #888;
-}
-.comment-user, .gift-user {
-    font-weight: bold;
-    color: #333;
-}
-.comment-text {
-    margin-top: 4px;
-}
-.gift-info-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-top: 4px;
-    margin-bottom: 4px;
-}
-.gift-image {
-    width: 30px;
-    height: 30px;
-    object-fit: contain;
-}
-.highlight-10000 { background-color: #ffe5e5; }
-.highlight-30000 { background-color: #ffcccc; }
-.highlight-60000 { background-color: #ffb2b2; }
-.highlight-100000 { background-color: #ff9999; }
-.highlight-300000 { background-color: #ff7f7f; }
-.fan-level {
-    font-weight: bold;
-    color: #555;
-}
-.tracking-success {
-    background-color: #e6f7e6;
-    color: #333333;
-    padding: 1rem;
-    border-left: 5px solid #4CAF50;
-    margin-bottom: -36px !important;
-    margin-top: 0 !important;
-}
-</style>
-"""
-st.markdown(CSS_STYLE, unsafe_allow_html=True)
+# --- データ取得関数 ---
 
-# エラーメッセージ・警告メッセージの幅を100%に変更
-CUSTOM_MSG_CSS = """
-<style>
-/* 通常の警告・情報用 */
-div[data-testid="stNotification"] {
-    width: 100% !important;
-    max-width: 100% !important;
-}
+@st.cache_data(ttl=600)  # 10分間キャッシュを保持
+def get_events(statuses):
+    """
+    指定されたステータスのイベントリストをAPIから取得します。
+    """
+    all_events = []
+    # 選択されたステータスごとにAPIを叩く
+    for status in statuses:
+        page = 1
+        # 1ステータスあたり最大20ページまで取得を試みる
+        for _ in range(20):
+            params = {"status": status, "page": page}
+            try:
+                response = requests.get(API_EVENT_SEARCH_URL, headers=HEADERS, params=params, timeout=10)
+                response.raise_for_status()  # HTTPエラーがあれば例外を発生
+                data = response.json()
 
-/* st.error 専用: Streamlit 1.38+ では .stAlert クラスを使用 */
-div.stAlert {
-    width: 100% !important;
-    max-width: 100% !important;
-}
+                # 'events' または 'event_list' キーからイベントリストを取得
+                page_events = data.get('events', data.get('event_list', []))
 
-/* 追加の親要素にも適用（念のため） */
-section.main div.block-container {
-    width: 100% !important;
-}
-</style>
-"""
-st.markdown(CUSTOM_MSG_CSS, unsafe_allow_html=True)
+                if not page_events:
+                    break  # イベントがなければループを抜ける
 
+                all_events.extend(page_events)
+                page += 1
+                time.sleep(0.1) # APIへの負荷を考慮して少し待機
+            except requests.exceptions.RequestException as e:
+                st.error(f"イベントデータ取得中にエラーが発生しました (status={status}): {e}")
+                break
+            except ValueError:
+                st.error(f"APIからのJSONデコードに失敗しました (status={status})。")
+                break
+    return all_events
 
-# セッション状態の初期化
-if "room_id" not in st.session_state:
-    st.session_state.room_id = ""
-if "is_tracking" not in st.session_state:
-    st.session_state.is_tracking = False
-if "comment_log" not in st.session_state:
-    st.session_state.comment_log = []
-if "gift_log" not in st.session_state:
-    st.session_state.gift_log = []
-if "fan_list" not in st.session_state:
-    st.session_state.fan_list = []
-if "gift_list_map" not in st.session_state:
-    st.session_state.gift_list_map = {}
-if 'onlives_data' not in st.session_state:
-    st.session_state.onlives_data = {}
-if 'total_fan_count' not in st.session_state:
-    st.session_state.total_fan_count = 0
-
-# --- API連携関数 ---
-
-def get_onlives_rooms():
-    onlives = {}
+@st.cache_data(ttl=300)  # 5分間キャッシュを保持
+def get_total_entries(event_id):
+    """
+    指定されたイベントの総参加ルーム数を取得します。
+    """
+    params = {"event_id": event_id}
     try:
-        response = requests.get(ONLIVES_API_URL, headers=HEADERS, timeout=5)
+        response = requests.get(API_EVENT_ROOM_LIST_URL, headers=HEADERS, params=params, timeout=10)
+        # 404エラーは参加者情報がない場合なので正常系として扱う
+        if response.status_code == 404:
+            return 0
         response.raise_for_status()
         data = response.json()
-        all_lives = []
-        if isinstance(data, dict):
-            if 'onlives' in data and isinstance(data['onlives'], list):
-                for genre_group in data['onlives']:
-                    if 'lives' in genre_group and isinstance(genre_group['lives'], list):
-                        all_lives.extend(genre_group['lives'])
-            for live_type in ['official_lives', 'talent_lives', 'amateur_lives']:
-                if live_type in data and isinstance(data.get(live_type), list):
-                    all_lives.extend(data[live_type])
-        for room in all_lives:
-            room_id = None
-            if isinstance(room, dict):
-                room_id = room.get('room_id')
-                if room_id is None and 'live_info' in room and isinstance(room['live_info'], dict):
-                    room_id = room['live_info'].get('room_id')
-                if room_id is None and 'room' in room and isinstance(room['room'], dict):
-                    room_id = room['room'].get('room_id')
-            if room_id:
-                onlives[int(room_id)] = room
-    except requests.exceptions.RequestException as e:
-        st.error(f"配信情報取得中にエラーが発生しました: {e}")
-    except (ValueError, AttributeError):
-        st.error("配信情報のJSONデコードまたは解析に失敗しました。")
-    return onlives
-
-def get_and_update_log(log_type, room_id):
-    api_url = COMMENT_API_URL if log_type == "comment" else GIFT_API_URL
-    url = f"{api_url}?room_id={room_id}"
-    try:
-        response = requests.get(url, headers=HEADERS, timeout=5)
-        response.raise_for_status()
-        new_log = response.json().get(f'{log_type}_log', [])
-        existing_cache = st.session_state[f"{log_type}_log"]
-        existing_log_keys = {(log.get('created_at'), log.get('name')) for log in existing_cache}
-        for log in new_log:
-            log_key = (log.get('created_at'), log.get('name'))
-            if log_key not in existing_log_keys:
-                existing_cache.append(log)
-                existing_log_keys.add(log_key)
-        existing_cache.sort(key=lambda x: x.get('created_at', 0), reverse=True)
-        return existing_cache
+        # 'total_entries' キーから参加ルーム数を取得
+        return data.get('total_entries', 0)
     except requests.exceptions.RequestException:
-        st.warning(f"ルームID {room_id} の{log_type}ログ取得中にエラーが発生しました。配信中か確認してください。")
-        return st.session_state.get(f"{log_type}_log", [])
+        # エラー時は 'N/A' を返す
+        return "N/A"
+    except ValueError:
+        return "N/A"
 
-def get_gift_list(room_id):
-    if st.session_state.gift_list_map:
-        return st.session_state.gift_list_map
-    url = f"{GIFT_LIST_API_URL}?room_id={room_id}"
-    try:
-        response = requests.get(url, headers=HEADERS, timeout=5)
-        response.raise_for_status()
-        data = response.json()
-        gift_list_map = {}
-        for gift in data.get('normal', []) + data.get('special', []):
-            try:
-                point_value = int(gift.get('point', 0))
-            except (ValueError, TypeError):
-                point_value = 0
-            gift_list_map[str(gift['gift_id'])] = {
-                'name': gift.get('gift_name', 'N/A'),
-                'point': point_value,
-                'image': gift.get('image', '')
-            }
-        st.session_state.gift_list_map = gift_list_map
-        return gift_list_map
-    except requests.exceptions.RequestException as e:
-        st.error(f"ルームID {room_id} のギフトリスト取得中にエラーが発生しました: {e}")
-        return {}
+# --- UI表示関数 ---
 
-def get_fan_list(room_id):
-    fan_list = []
-    offset = 0
-    limit = 50
-    current_ym = datetime.datetime.now(JST).strftime("%Y%m")
-    total_user_count = 0
-    while True:
-        url = f"{FAN_LIST_API_URL}?room_id={room_id}&ym={current_ym}&offset={offset}&limit={limit}"
-        try:
-            response = requests.get(url, headers=HEADERS, timeout=5)
-            response.raise_for_status()
-            data = response.json()
-            users = data.get("users", [])
-            if offset == 0 and "total_user_count" in data:
-                total_user_count = data["total_user_count"]
-            if not users:
-                break
-            for user in users:
-                if user.get('level', 0) < 10:
-                    return fan_list, total_user_count
-                fan_list.append(user)
-            offset += len(users)
-            if len(users) < limit:
-                break
-        except requests.exceptions.RequestException:
-            st.warning(f"ルームID {room_id} のファンリスト取得中にエラーが発生しました。")
-            break
-    return fan_list, total_user_count
+def display_event_info(event):
+    """
+    1つのイベント情報をStreamlitのUIに表示します。
+    """
+    # 必要な情報が欠けている場合は表示しない
+    if not all(k in event for k in ['image_m', 'event_name', 'event_url_key', 'event_id', 'started_at', 'ended_at']):
+        return
 
-# --- ルームリスト取得関数 ---
-def get_room_list():
-    try:
-        df = pd.read_csv(ROOM_LIST_URL)
-        return df
-    except Exception:
-        return pd.DataFrame()
+    # 参加ルーム数を取得
+    total_entries = get_total_entries(event['event_id'])
 
-# --- UI構築 ---
+    # UIのレイアウトを定義（左に画像、右に情報）
+    col1, col2 = st.columns([1, 4])
 
-st.markdown("<h1 style='font-size:2.5em;'>🎤 SHOWROOM 配信ログ収集ツール</h1>", unsafe_allow_html=True)
-st.write("配信中のコメント、スペシャルギフト、ファンリストをリアルタイムで収集し、ログをダウンロードできます。")
-st.write("")
+    with col1:
+        st.image(event['image_m'])
 
-
-# ▼▼ 認証ステップ ▼▼
-if not st.session_state.authenticated:
-    st.markdown("### 🔑 認証コードを入力してください")
-    input_room_id = st.text_input(
-        "認証コードを入力してください:",
-        placeholder="",
-        type="password",
-        key="room_id_input"
-    )
-
-    # 認証ボタン
-    if st.button("認証する"):
-        if input_room_id:  # 入力が空でない場合のみ
-            try:
-                response = requests.get(ROOM_LIST_URL, timeout=5)
-                response.raise_for_status()
-                room_df = pd.read_csv(io.StringIO(response.text), header=None)
-
-                valid_codes = set(str(x).strip() for x in room_df.iloc[:, 0].dropna())
-
-                if input_room_id.strip() in valid_codes:
-                    st.session_state.authenticated = True
-                    st.success("✅ 認証に成功しました。ツールを利用できます。")
-                    st.rerun()  # 認証成功後に再読み込み
-                else:
-                    st.error("❌ 認証コードが無効です。正しい認証コードを入力してください。")
-            except Exception as e:
-                st.error(f"認証リストを取得できませんでした: {e}")
-        else:
-            st.warning("認証コードを入力してください。")
-
-    # 認証が終わるまで他のUIを描画しない
-    st.stop()
-# ▲▲ 認証ステップここまで ▲▲
-
-
-input_room_id = st.text_input("対象のルームIDを入力してください:", placeholder="例: 154851", key="room_id_input")
-
-# --- ボタンを縦並びに配置 ---
-if st.button("トラッキング開始", key="start_button"):
-    if input_room_id and input_room_id.isdigit():
-        room_list_df = get_room_list()
-        valid_ids = set(str(x) for x in room_list_df.iloc[:,0].dropna().astype(int))
-        if input_room_id not in valid_ids:
-            st.error("指定されたルームIDが見つからないか、認証されていないルームIDか、現在配信中ではありません。")
-        else:
-            st.session_state.is_tracking = True
-            st.session_state.room_id = input_room_id
-            st.session_state.comment_log = []
-            st.session_state.gift_log = []
-            st.session_state.gift_list_map = {}
-            st.session_state.fan_list = []
-            st.session_state.total_fan_count = 0
-            st.rerun()
-    else:
-        st.error("ルームIDを入力してください。")
-
-if st.button("トラッキング停止", key="stop_button", disabled=not st.session_state.is_tracking):
-    st.session_state.is_tracking = False
-    st.session_state.room_info = None
-    st.info("トラッキングを停止しました。")
-    st.rerun()
-
-if st.session_state.is_tracking:
-    onlives_data = get_onlives_rooms()
-    target_room_info = onlives_data.get(int(st.session_state.room_id)) if st.session_state.room_id.isdigit() else None
-
-    if target_room_info:
-        room_id = st.session_state.room_id
-        # ルーム名取得
-        try:
-            prof = requests.get(f"https://www.showroom-live.com/api/room/profile?room_id={room_id}", headers=HEADERS, timeout=5).json()
-            room_name = prof.get("room_name", f"ルームID {room_id}")
-        except Exception:
-            room_name = f"ルームID {room_id}"
-        # URLキー取得
-        room_url_key = prof.get("room_url_key", "")
-        room_url = f"https://www.showroom-live.com/r/{room_url_key}" if room_url_key else f"https://www.showroom-live.com/room/profile?room_id={room_id}"
-        link_html = f'<a href="{room_url}" target="_blank" style="font-weight:bold; text-decoration:underline; color:inherit;">{room_name}</a>'
-        st.markdown(f'<div class="tracking-success">{link_html} の配信をトラッキング中です！</div>', unsafe_allow_html=True)
-
-        st_autorefresh(interval=7000, limit=None, key="dashboard_refresh")
-        st.session_state.comment_log = get_and_update_log("comment", st.session_state.room_id)
-        st.session_state.gift_log = get_and_update_log("gift", st.session_state.room_id)
-        st.session_state.gift_list_map = get_gift_list(st.session_state.room_id)
-        fan_list, total_fan_count = get_fan_list(st.session_state.room_id)
-        st.session_state.fan_list = fan_list
-        st.session_state.total_fan_count = total_fan_count
-
-        st.markdown("---")
-        st.markdown("<h2 style='font-size:2em;'>📊 リアルタイムダッシュボード</h2>", unsafe_allow_html=True)
-        st.markdown(f"**最終更新日時 (日本時間): {datetime.datetime.now(JST).strftime('%Y-%m-%d %H:%M:%S')}**")
-        st.markdown(f"<p style='font-size:12px; color:#a1a1a1;'>※約7秒ごとに自動更新されます。</p>", unsafe_allow_html=True)
-
-        col_comment, col_gift, col_fan = st.columns(3)
-        with col_comment:
-            st.markdown("### 📝 コメント")
-            with st.container(border=True, height=500):
-                filtered_comments = [
-                    log for log in st.session_state.comment_log 
-                    if not any(keyword in log.get('name', '') or keyword in log.get('comment', '') for keyword in SYSTEM_COMMENT_KEYWORDS)
-                ]
-                if filtered_comments:
-                    for log in filtered_comments:
-                        user_name = log.get('name', '匿名ユーザー')
-                        comment_text = log.get('comment', '')
-                        created_at = datetime.datetime.fromtimestamp(log.get('created_at', 0), JST).strftime("%H:%M:%S")
-                        avatar_url = log.get('avatar_url', '')
-                        html = f"""
-                        <div class="comment-item">
-                            <div class="comment-item-row">
-                                <img src="{avatar_url}" class="comment-avatar" />
-                                <div class="comment-content">
-                                    <div class="comment-time">{created_at}</div>
-                                    <div class="comment-user">{user_name}</div>
-                                    <div class="comment-text">{comment_text}</div>
-                                </div>
-                            </div>
-                        </div>
-                        <hr style="border: none; border-top: 1px solid #eee; margin: 8px 0;">
-                        """
-                        st.markdown(html, unsafe_allow_html=True)
-                else:
-                    st.info("コメントがありません。")
-        with col_gift:
-            st.markdown("### 🎁 スペシャルギフト")
-            with st.container(border=True, height=500):
-                if st.session_state.gift_log and st.session_state.gift_list_map:
-                    for log in st.session_state.gift_log:
-                        gift_info = st.session_state.gift_list_map.get(str(log.get('gift_id')), {})
-                        if not gift_info:
-                            continue
-                        user_name = log.get('name', '匿名ユーザー')
-                        created_at = datetime.datetime.fromtimestamp(log.get('created_at', 0), JST).strftime("%H:%M:%S")
-                        gift_point = gift_info.get('point', 0)
-                        gift_count = log.get('num', 0)
-                        total_point = gift_point * gift_count
-                        highlight_class = ""
-                        if total_point >= 300000: highlight_class = "highlight-300000"
-                        elif total_point >= 100000: highlight_class = "highlight-100000"
-                        elif total_point >= 60000: highlight_class = "highlight-60000"
-                        elif total_point >= 30000: highlight_class = "highlight-30000"
-                        elif total_point >= 10000: highlight_class = "highlight-10000"
-                        gift_image_url = log.get('image', gift_info.get('image', ''))
-                        avatar_id = log.get('avatar_id', None)
-                        avatar_url = f"https://static.showroom-live.com/image/avatar/{avatar_id}.png" if avatar_id else DEFAULT_AVATAR
-                        html = f"""
-                        <div class="gift-item {highlight_class}">
-                            <div class="gift-item-row">
-                                <img src="{avatar_url}" class="gift-avatar" />
-                                <div class="gift-content">
-                                    <div class="gift-time">{created_at}</div>
-                                    <div class="gift-user">{user_name}</div>
-                                    <div class="gift-info-row">
-                                        <img src="{gift_image_url}" class="gift-image" />
-                                        <span>×{gift_count}</span>
-                                    </div>
-                                    <div>{gift_point} pt</div>
-                                </div>
-                            </div>
-                        </div>
-                        <hr style="border: none; border-top: 1px solid #eee; margin: 8px 0;">
-                        """
-                        st.markdown(html, unsafe_allow_html=True)
-                else:
-                    st.info("ギフトがありません。")
-        with col_fan:
-            st.markdown("### 🏆 ファンリスト")
-            with st.container(border=True, height=500):
-                if st.session_state.fan_list:
-                    for fan in st.session_state.fan_list:
-                        html = f"""
-                        <div class="fan-item">
-                            <div class="fan-info-row">
-                                <img src="https://static.showroom-live.com/image/avatar/{fan.get('avatar_id', 0)}.png?v=108" class="fan-avatar" />
-                                <div>
-                                    <div class="fan-level">Lv. {fan.get('level', 0)}</div>
-                                    <div>{fan.get('user_name', '不明なユーザー')}</div>
-                                </div>
-                            </div>
-                        </div>
-                        <hr style="border: none; border-top: 1px solid #eee; margin: 8px 0;">
-                        """
-                        st.markdown(html, unsafe_allow_html=True)
-                else:
-                    st.info("ファンデータがありません。")
-    else:
-        st.warning("指定されたルームIDが見つからないか、認証されていないルームIDか、現在配信中ではありません。")
-        st.session_state.is_tracking = False
-
-st.markdown("---")
-st.markdown("<h2 style='font-size:2em;'>📝 ログ詳細</h2>", unsafe_allow_html=True)
-st.markdown(f"<p style='font-size:12px; color:#a1a1a1;'>※データは現在{len(st.session_state.comment_log)}件のコメントと{len(st.session_state.gift_log)}件のスペシャルギフトと{st.session_state.total_fan_count}名のファンのデータが蓄積されています。</p>", unsafe_allow_html=True)
-
-comment_cols = ['コメント時間', 'ユーザー名', 'コメント内容', 'ユーザーID']
-gift_cols = ['ギフト時間', 'ユーザー名', 'ギフト名', '個数', 'ポイント', 'ユーザーID']
-fan_cols = ['順位', 'レベル', 'ユーザー名', 'ポイント', 'ユーザーID']
-
-# コメント一覧表
-filtered_comments_df = [
-    log for log in st.session_state.comment_log 
-    if not any(keyword in log.get('name', '') or keyword in log.get('comment', '') for keyword in SYSTEM_COMMENT_KEYWORDS)
-]
-if filtered_comments_df:
-    comment_df = pd.DataFrame(filtered_comments_df)
-    comment_df['created_at'] = pd.to_datetime(comment_df['created_at'], unit='s').dt.tz_localize('UTC').dt.tz_convert(JST).dt.strftime("%Y-%m-%d %H:%M:%S")
-    comment_df['user_id'] = [log.get('user_id', 'N/A') for log in filtered_comments_df]
-    comment_df = comment_df.rename(columns={
-        'name': 'ユーザー名', 'comment': 'コメント内容', 'created_at': 'コメント時間', 'user_id': 'ユーザーID'
-    })
-    st.markdown("### 📝 コメントログ一覧表")
-    st.dataframe(comment_df[comment_cols], use_container_width=True, hide_index=True)
-    
-    buffer = io.BytesIO()
-    comment_df[comment_cols].to_csv(buffer, index=False, encoding='utf-8-sig')
-    buffer.seek(0)
-    st.download_button(
-        label="コメントログをCSVでダウンロード",
-        data=buffer,
-        file_name=f"comment_log_{st.session_state.room_id}_{datetime.datetime.now(JST).strftime('%Y%m%d_%H%M%S')}.csv",
-        mime="text/csv",
-    )
-else:
-    st.info("ダウンロードできるコメントがありません。")
-
-st.markdown("---")
-
-# ギフト一覧表
-if st.session_state.gift_log:
-    gift_df = pd.DataFrame(st.session_state.gift_log)
-    gift_df['created_at'] = pd.to_datetime(gift_df['created_at'], unit='s').dt.tz_localize('UTC').dt.tz_convert(JST).dt.strftime("%Y-%m-%d %H:%M:%S")
-    
-    if st.session_state.gift_list_map:
-        gift_info_df = pd.DataFrame.from_dict(st.session_state.gift_list_map, orient='index')
-        gift_info_df.index = gift_info_df.index.astype(str)
+    with col2:
+        # イベント名をリンク付きで表示
+        event_url = f"{EVENT_PAGE_BASE_URL}{event['event_url_key']}"
+        st.markdown(f"**[{event['event_name']}]({event_url})**")
         
-        gift_df['gift_id'] = gift_df['gift_id'].astype(str)
-        gift_df = gift_df.set_index('gift_id').join(gift_info_df, on='gift_id', lsuffix='_user_data', rsuffix='_gift_info').reset_index()
+        # 対象者情報を取得
+        target_info = "対象者限定" if event.get("is_entry_scope_inner") else "全ライバー"
+        st.write(f"**対象:** {target_info}")
 
-    gift_df = gift_df.rename(columns={
-        'name_user_data': 'ユーザー名', 'name_gift_info': 'ギフト名', 'num': '個数', 'point': 'ポイント', 'created_at': 'ギフト時間', 'user_id': 'ユーザーID'
-    })
-    st.markdown("### 🎁 スペシャルギフトログ一覧表")
-    st.dataframe(gift_df[gift_cols], use_container_width=True, hide_index=True)
-    
-    buffer = io.BytesIO()
-    gift_df[gift_cols].to_csv(buffer, index=False, encoding='utf-8-sig')
-    buffer.seek(0)
-    st.download_button(
-        label="スペシャルギフトログをCSVでダウンロード",
-        data=buffer,
-        file_name=f"gift_log_{st.session_state.room_id}_{datetime.datetime.now(JST).strftime('%Y%m%d_%H%M%S')}.csv",
-        mime="text/csv",
+        # イベント期間をフォーマットして表示
+        start_date = datetime.fromtimestamp(event['started_at'], JST).strftime('%Y/%m/%d %H:%M')
+        end_date = datetime.fromtimestamp(event['ended_at'], JST).strftime('%Y/%m/%d %H:%M')
+        st.write(f"**期間:** {start_date} - {end_date}")
+
+        # 参加ルーム数を表示
+        st.write(f"**参加ルーム数:** {total_entries}")
+
+    st.markdown("---")
+
+def get_duration_category(start_ts, end_ts):
+    """
+    イベント期間からカテゴリを判断します。
+    """
+    duration = timedelta(seconds=end_ts - start_ts)
+    if duration <= timedelta(days=3):
+        return "3日以内"
+    elif duration <= timedelta(days=7):
+        return "1週間"
+    elif duration <= timedelta(days=10):
+        return "10日"
+    elif duration <= timedelta(days=14):
+        return "2週間"
+    else:
+        return "その他"
+
+
+# --- メイン処理 ---
+def main():
+    # ページ設定
+    st.set_page_config(
+        page_title="SHOWROOM イベント一覧",
+        page_icon="🎤",
+        layout="wide"
     )
-else:
-    st.info("ダウンロードできるスペシャルギフトがありません。")
 
-st.markdown("---")
+    #st.title("🎤 SHOWROOM イベント一覧")
+    st.markdown("<h1 style='font-size:2.5em;'>🎤 SHOWROOM イベント一覧</h1>", unsafe_allow_html=True)    
+    st.write("")
 
-# ファンリスト一覧表
-if st.session_state.fan_list:
-    fan_df = pd.DataFrame(st.session_state.fan_list)
-    
-    rename_map = {'user_name': 'ユーザー名', 'level': 'レベル', 'point': 'ポイント', 'user_id': 'ユーザーID'}
-    if 'rank' in fan_df.columns:
-        rename_map['rank'] = '順位'
-    
-    fan_df = fan_df.rename(columns=rename_map)
+    # 行間と余白の調整
+    st.markdown(
+        """
+        <style>
+        /* イベント詳細の行間を詰める */
+        .event-info p, .event-info li, .event-info {
+            line-height: 1.7;
+            margin-top: 0.0rem;
+            margin-bottom: 0.4rem;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
 
-    final_fan_cols = [col for col in fan_cols if col in fan_df.columns]
-    
-    column_config = {
-        "順位": st.column_config.NumberColumn("順位", help="ファンランキングの順位", width="small"),
-        "レベル": st.column_config.NumberColumn("レベル", help="ファンレベル", width="small"),
-        "ユーザー名": st.column_config.TextColumn("ユーザー名", help="SHOWROOMのユーザー名", width="large"),
-        "ポイント": st.column_config.NumberColumn("ポイント", help="獲得ポイント", format="%d", width="medium"),
-        "ユーザーID": st.column_config.NumberColumn("ユーザーID", help="SHOWROOMのユーザーID", width="medium")
+    # --- フィルタリング機能 ---
+    st.sidebar.header("表示フィルタ")
+    status_options = {
+        "開催中": 1,
+        "開催予定": 3,
+        "終了": 4,
     }
-    
-    st.markdown("### 🏆 ファンリスト一覧表")
-    st.dataframe(
-        fan_df[final_fan_cols], 
-        use_container_width=True, 
-        hide_index=True,
-        column_config=column_config
-    )
-    
-    buffer = io.BytesIO()
-    fan_df[final_fan_cols].to_csv(buffer, index=False, encoding='utf-8-sig')
-    buffer.seek(0)
-    st.download_button(
-        label="ファンリストをCSVでダウンロード",
-        data=buffer,
-        file_name=f"fan_list_{st.session_state.room_id}_{datetime.datetime.now(JST).strftime('%Y%m%d_%H%M%S')}.csv",
-        mime="text/csv",
-    )
-else:
-    st.info("ダウンロードできるファンデータがありません。")
+
+    # チェックボックスの状態を管理
+    use_on_going = st.sidebar.checkbox("開催中", value=True)
+    use_upcoming = st.sidebar.checkbox("開催予定", value=False)
+    use_finished = st.sidebar.checkbox("終了", value=False)
+
+    selected_statuses = []
+    if use_on_going:
+        selected_statuses.append(status_options["開催中"])
+    if use_upcoming:
+        selected_statuses.append(status_options["開催予定"])
+    if use_finished:
+        selected_statuses.append(status_options["終了"])
+
+    # --- イベント情報表示 ---
+    if not selected_statuses:
+        st.warning("表示するステータスをサイドバーで1つ以上選択してください。")
+        st.stop()
+
+    # 選択されたステータスに基づいてイベント情報を取得
+    with st.spinner("イベント情報を取得中..."):
+        events = get_events(selected_statuses)
+
+    if not events:
+        st.info("該当するイベントはありませんでした。")
+    else:
+        # --- フィルタリングオプション ---
+        # 開始日フィルタの選択肢を生成
+        start_dates = sorted(list(set([
+            datetime.fromtimestamp(e['started_at'], JST).date() for e in events if 'started_at' in e
+        ])), reverse=True)
+        
+        # 日付と曜日の辞書を作成
+        date_options = {
+            d.strftime('%Y/%m/%d') + f"({['月', '火', '水', '木', '金', '土', '日'][d.weekday()]})": d
+            for d in start_dates
+        }
+        
+        selected_start_dates = st.sidebar.multiselect(
+            "開始日でフィルタ",
+            options=list(date_options.keys())
+        )
+
+        # 期間でフィルタ
+        duration_options = ["3日以内", "1週間", "10日", "2週間", "その他"]
+        selected_durations = st.sidebar.multiselect(
+            "期間でフィルタ",
+            options=duration_options
+        )
+
+        # 対象でフィルタ
+        target_options = ["全ライバー", "対象者限定"]
+        selected_targets = st.sidebar.multiselect(
+            "対象でフィルタ",
+            options=target_options
+        )
+        
+        # フィルタリングされたイベントリスト
+        filtered_events = events
+        
+        if selected_start_dates:
+            selected_dates_set = {date_options[d] for d in selected_start_dates}
+            filtered_events = [
+                e for e in filtered_events
+                if 'started_at' in e and datetime.fromtimestamp(e['started_at'], JST).date() in selected_dates_set
+            ]
+
+        if selected_durations:
+            filtered_events = [
+                e for e in filtered_events
+                if get_duration_category(e['started_at'], e['ended_at']) in selected_durations
+            ]
+        
+        if selected_targets:
+            target_map = {"全ライバー": False, "対象者限定": True}
+            selected_target_values = {target_map[t] for t in selected_targets}
+            filtered_events = [
+                e for e in filtered_events
+                if e.get('is_entry_scope_inner') in selected_target_values
+            ]
+
+        st.success(f"{len(filtered_events)}件のイベントが見つかりました。")
+        st.markdown("---")
+        # 取得したイベント情報を1つずつ表示
+        for event in filtered_events:
+            col1, col2 = st.columns([1, 4])  # ← col1, col2 をここで定義
+
+            with col1:
+                st.image(event['image_m'])
+
+            with col2:
+                event_url = f"{EVENT_PAGE_BASE_URL}{event['event_url_key']}"
+                st.markdown(
+                    f'<div class="event-info"><strong><a href="{event_url}">{event["event_name"]}</a></strong></div>',
+                    unsafe_allow_html=True
+                )
+
+                target_info = "対象者限定" if event.get("is_entry_scope_inner") else "全ライバー"
+                st.markdown(f'<div class="event-info"><strong>対象:</strong> {target_info}</div>', unsafe_allow_html=True)
+
+                start_date = datetime.fromtimestamp(event['started_at'], JST).strftime('%Y/%m/%d %H:%M')
+                end_date = datetime.fromtimestamp(event['ended_at'], JST).strftime('%Y/%m/%d %H:%M')
+                st.markdown(
+                    f'<div class="event-info"><strong>期間:</strong> {start_date} - {end_date}</div>',
+                    unsafe_allow_html=True
+                )
+
+                total_entries = get_total_entries(event['event_id'])  # ← 参加ルーム数を再取得
+                st.markdown(
+                    f'<div class="event-info"><strong>参加ルーム数:</strong> {total_entries}</div>',
+                    unsafe_allow_html=True
+                )
+
+            st.markdown("---")        
+
+
+if __name__ == "__main__":
+    main()
