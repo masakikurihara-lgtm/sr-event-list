@@ -419,9 +419,10 @@ def main():
             if st.sidebar.button("日時からタイムスタンプへ変換"):
                 if datetime_input:
                     try:
+                        # タイムゾーンを考慮してdatetimeオブジェクトを生成
+                        # astimezone()を使ってタイムゾーン付きのオブジェクトに変換
                         dt_obj = datetime.strptime(datetime_input.strip(), '%Y/%m/%d %H:%M')
-                        dt_obj = JST.localize(dt_obj)
-                        timestamp = int(dt_obj.timestamp())
+                        timestamp = int(JST.localize(dt_obj, is_dst=None).timestamp())
                         st.sidebar.success(
                             f"**変換結果:**\n\n"
                             f"**タイムスタンプ:** {timestamp}"
