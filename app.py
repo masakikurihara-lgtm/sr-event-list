@@ -154,6 +154,7 @@ def main():
         </style>
         """,
         unsafe_allow_html=True
+    )
 
     # --- フィルタリング機能 ---
     st.sidebar.header("表示フィルタ")
