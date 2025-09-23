@@ -105,6 +105,8 @@ def get_past_events_from_files(urls):
         all_past_events.drop_duplicates(subset=["event_id"], keep='first', inplace=True)
         # 'ended_at' が現在よりも過去のものを抽出
         now_timestamp = int(datetime.now(JST).timestamp())
+        # ▼ 注意点: ここで `ended_at` が現在のタイムスタンプよりも未来であれば、フィルタリングにより表示されません。
+        # 例えば、データ内のイベント終了日が今日よりも未来の場合、この関数はそれらを「まだ終了していない」と判断します。
         all_past_events = all_past_events[all_past_events['ended_at'] < now_timestamp]
     
     return all_past_events.to_dict('records')
@@ -415,23 +417,38 @@ def main():
                 placeholder="例: 2025/08/11 18:00",
                 key="datetime_input"
             )
-
-            if st.sidebar.button("日時からタイムスタンプへ変換"):
+            
+            # 日時を「開始時間」のタイムスタンプに変換するボタン
+            if st.sidebar.button("日時から開始タイムスタンプへ変換"):
                 if datetime_input:
                     try:
-                        # タイムゾーンを考慮してdatetimeオブジェクトを生成
-                        # 日本時間として解釈
-                        dt_obj = JST.localize(datetime.strptime(datetime_input.strip(), '%Y/%m/%d %H:%M'), is_dst=None)
+                        dt_obj_naive = datetime.strptime(datetime_input.strip(), '%Y/%m/%d %H:%M').replace(second=0)
+                        dt_obj = JST.localize(dt_obj_naive, is_dst=None)
                         timestamp = int(dt_obj.timestamp())
                         st.sidebar.success(
-                            f"**変換結果:**\n\n"
+                            f"**開始タイムスタンプの変換結果:**\n\n"
                             f"**タイムスタンプ:** {timestamp}"
                         )
                     except ValueError:
                         st.sidebar.error("無効な日時形式です。'YYYY/MM/DD HH:MM'形式で入力してください。")
                 else:
                     st.sidebar.warning("日時を入力してください。")
-
+            
+            # 日時を「終了時間」のタイムスタンプに変換するボタン
+            if st.sidebar.button("日時から終了タイムスタンプへ変換"):
+                if datetime_input:
+                    try:
+                        dt_obj_naive = datetime.strptime(datetime_input.strip(), '%Y/%m/%d %H:%M').replace(second=59)
+                        dt_obj = JST.localize(dt_obj_naive, is_dst=None)
+                        timestamp = int(dt_obj.timestamp())
+                        st.sidebar.success(
+                            f"**終了タイムスタンプの変換結果:**\n\n"
+                            f"**タイムスタンプ:** {timestamp}"
+                        )
+                    except ValueError:
+                        st.sidebar.error("無効な日時形式です。'YYYY/MM/DD HH:MM'形式で入力してください。")
+                else:
+                    st.sidebar.warning("日時を入力してください。")
         # ▲▲ 修正箇所 ▲▲
         
         # フィルタリングされたイベントリスト
