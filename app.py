@@ -16,7 +16,8 @@ API_EVENT_SEARCH_URL = "https://www.showroom-live.com/api/event/search"
 API_EVENT_ROOM_LIST_URL = "https://www.showroom-live.com/api/event/room_list"
 # SHOWROOMのイベントページのベースURL
 EVENT_PAGE_BASE_URL = "https://www.showroom-live.com/event/"
-
+#MKsoulルームリスト
+ROOM_LIST_URL = "https://mksoul-pro.com/showroom/file/room_list.csv"
 # --- データ取得関数 ---
 
 @st.cache_data(ttl=600)  # 10分間キャッシュを保持
