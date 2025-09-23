@@ -303,8 +303,8 @@ def main():
                     
                     if events_for_df:
                         df = pd.DataFrame(events_for_df)
-                        # CSV形式に変換 (encodingをshift-jisに変更)
-                        csv_data = df.to_csv(index=False, encoding='shift-jis').encode('shift-jis')
+                        # CSV形式に変換 (encodingをutf-8に、BOMを追加)
+                        csv_data = df.to_csv(index=False).encode('utf-8-sig')
                         st.sidebar.download_button(
                             label="ダウンロード開始",
                             data=csv_data,
