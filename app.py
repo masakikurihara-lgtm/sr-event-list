@@ -96,7 +96,7 @@ def display_event_info(event):
     with col2:
         # イベント名をリンク付きで表示
         event_url = f"{EVENT_PAGE_BASE_URL}{event['event_url_key']}"
-        st.markdown(f"**[{event['event_name']}]({event_url})**", unsafe_allow_html=True)
+        st.markdown(f"**[{event['event_name']}]({event_url})**")
         
         # 対象者情報を取得
         target_info = "対象者限定" if event.get("is_entry_scope_inner") else "全ライバー"
