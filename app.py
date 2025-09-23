@@ -69,11 +69,15 @@ def get_past_events_from_files(urls):
     指定されたURLから過去のイベントデータを取得し、マージ・重複排除します。
     """
     all_past_events = pd.DataFrame()
+    column_names = [
+        "event_id", "is_event_block", "is_entry_scope_inner", "event_name",
+        "image_m", "started_at", "ended_at", "event_url_key", "show_ranking"
+    ]
     for url in urls:
         try:
             response = requests.get(url, headers=HEADERS, timeout=10)
             response.raise_for_status()
-            df = pd.read_csv(io.StringIO(response.text))
+            df = pd.read_csv(io.StringIO(response.text), header=None, names=column_names)
             all_past_events = pd.concat([all_past_events, df], ignore_index=True)
         except requests.exceptions.RequestException as e:
             st.warning(f"過去イベントデータ取得中にエラーが発生しました (URL: {url}): {e}")
