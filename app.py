@@ -412,7 +412,13 @@ def main():
                 if e.get('is_entry_scope_inner') in selected_target_values
             ]
         
-        st.success(f"{len(filtered_events)}件のイベントが見つかりました。ただし、重複データはイベントIDごとに1件のみ表示しています。")
+        # ▼▼ 修正箇所 ▼▼
+        if use_finished and use_past_bu:
+            st.success(f"{len(filtered_events)}件のイベントが見つかりました。ただし、重複データは1件のみ表示しています。")
+        else:
+            st.success(f"{len(filtered_events)}件のイベントが見つかりました。")
+        # ▲▲ 修正箇所 ▲▲
+        
         st.markdown("---")
         # 取得したイベント情報を1つずつ表示
         for event in filtered_events:
