@@ -85,6 +85,10 @@ def get_past_events_from_files(urls):
             st.warning(f"過去イベントデータの処理中にエラーが発生しました (URL: {url}): {e}")
     
     if not all_past_events.empty:
+        # 'ended_at' 列を数値に変換し、変換できない場合は NaN にする
+        all_past_events['ended_at'] = pd.to_numeric(all_past_events['ended_at'], errors='coerce')
+        # NaN がある行を削除
+        all_past_events.dropna(subset=['ended_at'], inplace=True)
         # 重複行を削除
         all_past_events.drop_duplicates(subset=["event_id"], keep='first', inplace=True)
         # 'ended_at' が現在よりも過去のものを抽出
