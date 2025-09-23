@@ -352,6 +352,7 @@ def main():
 
     # 辞書の値をリストに変換して、フィルタリング処理に進む
     all_events = list(unique_events_dict.values())
+    original_event_count = len(all_events)
 
     if not all_events:
         st.info("該当するイベントはありませんでした。")
@@ -411,9 +412,7 @@ def main():
                 if e.get('is_entry_scope_inner') in selected_target_values
             ]
         
-        st.markdown("重複データをイベントIDで除外して表示しています。")
-        # 修正: 件数表示をフィルタリング後のfiltered_eventsの長さに変更
-        st.success(f"{len(filtered_events)}件のイベントが見つかりました。")
+        st.success(f"{len(filtered_events)}件のイベントが見つかりました。ただし、重複データはイベントIDごとに1件のみ表示しています。")
         st.markdown("---")
         # 取得したイベント情報を1つずつ表示
         for event in filtered_events:
