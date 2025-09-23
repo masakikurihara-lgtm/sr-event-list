@@ -138,8 +138,9 @@ def main():
         layout="wide"
     )
 
-    st.title("🎤 SHOWROOM イベント一覧ツール")
-    st.write("SHOWROOMで開催されているイベントの情報を一覧で確認できます。")
+    #st.title("🎤 SHOWROOM イベント一覧")
+    st.markdown("<h1 style='font-size:2.5em;'>🎤 SHOWROOM イベント一覧</h1>", unsafe_allow_html=True)    
+    st.write("")
 
     # 行間と余白の調整
     st.markdown(
