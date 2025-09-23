@@ -283,56 +283,10 @@ def main():
     if use_finished:
         selected_statuses.append(status_options["終了"])
 
-
-    # --- イベント情報表示 ---
-    # `st.stop()`の条件を修正し、ダウンロードボタンの表示を独立させる
     if not selected_statuses and not use_past_bu:
         st.warning("表示するステータスをサイドバーで1つ以上選択してください。")
     
-    # 認証されていればダウンロードボタンは常に表示
-    if st.session_state.mksp_authenticated:
-        st.sidebar.header("特別機能")
-        if st.sidebar.button("全イベントデータをダウンロード"):
-            try:
-                all_statuses_to_download = [1, 3, 4]
-                with st.spinner("ダウンロード用の全イベントデータを取得中..."):
-                    all_events_to_download = get_events(all_statuses_to_download)
-                events_for_df = []
-                for event in all_events_to_download:
-                    if all(k in event for k in ["event_id", "is_event_block", "is_entry_scope_inner", "event_name", "image_m", "started_at", "ended_at", "event_url_key", "show_ranking"]):
-                        event_data = {
-                            "event_id": event["event_id"],
-                            "is_event_block": event["is_event_block"],
-                            "is_entry_scope_inner": event["is_entry_scope_inner"],
-                            "event_name": event["event_name"],
-                            "image_m": event["image_m"],
-                            "started_at": event["started_at"], # Unixタイムスタンプ形式に戻す
-                            "ended_at": event["ended_at"],     # Unixタイムスタンプ形式に戻す
-                            "event_url_key": event["event_url_key"],
-                            "show_ranking": event["show_ranking"]
-                        }
-                        events_for_df.append(event_data)
-                
-                if events_for_df:
-                    df = pd.DataFrame(events_for_df)
-                    csv_data = df.to_csv(index=False).encode('utf-8-sig')
-                    st.sidebar.download_button(
-                        label="ダウンロード開始",
-                        data=csv_data,
-                        file_name=f"showroom_events_{datetime.now(JST).strftime('%Y%m%d_%H%M%S')}.csv",
-                        mime="text/csv",
-                        key="download_button_trigger",
-                    )
-                    st.sidebar.success("ダウンロード準備ができました。上記のボタンをクリックしてください。")
-                else:
-                    st.sidebar.warning("ダウンロード可能なイベントデータがありませんでした。")
-            except Exception as e:
-                st.sidebar.error(f"データのダウンロード中にエラーが発生しました: {e}")
     
-    if not selected_statuses and not use_past_bu:
-        st.stop()
-
-
     # 選択されたステータスに基づいてイベント情報を取得
     # 辞書を使って重複を確実に排除
     unique_events_dict = {}
@@ -356,6 +310,7 @@ def main():
 
     if not all_events:
         st.info("該当するイベントはありませんでした。")
+        st.stop()
     else:
         # --- フィルタリングオプション ---
         # 開始日フィルタの選択肢を生成
@@ -373,7 +328,7 @@ def main():
             "開始日でフィルタ",
             options=list(date_options.keys())
         )
-
+        
         # 期間でフィルタ
         duration_options = ["3日以内", "1週間", "10日", "2週間", "その他"]
         selected_durations = st.sidebar.multiselect(
@@ -387,6 +342,48 @@ def main():
             "対象でフィルタ",
             options=target_options
         )
+        
+        # ▼▼ 修正箇所 ▼▼
+        # 認証されていればダウンロードボタンをここに配置
+        if st.session_state.mksp_authenticated:
+            st.sidebar.header("特別機能")
+            if st.sidebar.button("全イベントデータをダウンロード"):
+                try:
+                    all_statuses_to_download = [1, 3, 4]
+                    with st.spinner("ダウンロード用の全イベントデータを取得中..."):
+                        all_events_to_download = get_events(all_statuses_to_download)
+                    events_for_df = []
+                    for event in all_events_to_download:
+                        if all(k in event for k in ["event_id", "is_event_block", "is_entry_scope_inner", "event_name", "image_m", "started_at", "ended_at", "event_url_key", "show_ranking"]):
+                            event_data = {
+                                "event_id": event["event_id"],
+                                "is_event_block": event["is_event_block"],
+                                "is_entry_scope_inner": event["is_entry_scope_inner"],
+                                "event_name": event["event_name"],
+                                "image_m": event["image_m"],
+                                "started_at": event["started_at"], # Unixタイムスタンプ形式に戻す
+                                "ended_at": event["ended_at"],     # Unixタイムスタンプ形式に戻す
+                                "event_url_key": event["event_url_key"],
+                                "show_ranking": event["show_ranking"]
+                            }
+                            events_for_df.append(event_data)
+                    
+                    if events_for_df:
+                        df = pd.DataFrame(events_for_df)
+                        csv_data = df.to_csv(index=False).encode('utf-8-sig')
+                        st.sidebar.download_button(
+                            label="ダウンロード開始",
+                            data=csv_data,
+                            file_name=f"showroom_events_{datetime.now(JST).strftime('%Y%m%d_%H%M%S')}.csv",
+                            mime="text/csv",
+                            key="download_button_trigger",
+                        )
+                        st.sidebar.success("ダウンロード準備ができました。上記のボタンをクリックしてください。")
+                    else:
+                        st.sidebar.warning("ダウンロード可能なイベントデータがありませんでした。")
+                except Exception as e:
+                    st.sidebar.error(f"データのダウンロード中にエラーが発生しました: {e}")
+        # ▲▲ 修正箇所 ▲▲
         
         # フィルタリングされたイベントリスト
         filtered_events = all_events
@@ -412,12 +409,11 @@ def main():
                 if e.get('is_entry_scope_inner') in selected_target_values
             ]
         
-        # ▼▼ 修正箇所 ▼▼
+        
         if use_finished and use_past_bu:
             st.success(f"{len(filtered_events)}件のイベントが見つかりました。ただし、重複データは1件のみ表示しています。")
         else:
             st.success(f"{len(filtered_events)}件のイベントが見つかりました。")
-        # ▲▲ 修正箇所 ▲▲
         
         st.markdown("---")
         # 取得したイベント情報を1つずつ表示
