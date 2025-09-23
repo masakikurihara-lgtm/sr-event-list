@@ -147,7 +147,7 @@ def main():
         <style>
         /* イベント詳細の行間を詰める */
         .event-info p, .event-info li, .event-info {
-            line-height: 1.6;
+            line-height: 1.7;
             margin-top: 0.0rem;
             margin-bottom: 0.4rem;
         }
