@@ -1,7 +1,11 @@
 import streamlit as st
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta
 import time
+import pytz
+
+# 日本時間(JST)のタイムゾーンを設定
+JST = pytz.timezone('Asia/Tokyo')
 
 # --- 定数定義 ---
 # APIリクエスト時に使用するヘッダー
@@ -96,17 +100,33 @@ def display_event_info(event):
         
         # 対象者情報を取得
         target_info = "対象者限定" if event.get("is_entry_scope_inner") else "全ライバー"
-        st.write(f"**対象:** {target_info}")
+        st.markdown(f'<div style="margin-top: -1em;">**対象:** {target_info}</div>', unsafe_allow_html=True)
 
         # イベント期間をフォーマットして表示
-        start_date = datetime.fromtimestamp(event['started_at']).strftime('%Y/%m/%d %H:%M')
-        end_date = datetime.fromtimestamp(event['ended_at']).strftime('%Y/%m/%d %H:%M')
-        st.write(f"**期間:** {start_date} - {end_date}")
+        start_date = datetime.fromtimestamp(event['started_at'], JST).strftime('%Y/%m/%d %H:%M')
+        end_date = datetime.fromtimestamp(event['ended_at'], JST).strftime('%Y/%m/%d %H:%M')
+        st.markdown(f'<div style="margin-top: -1em;">**期間:** {start_date} - {end_date}</div>', unsafe_allow_html=True)
 
         # 参加ルーム数を表示
-        st.write(f"**参加ルーム数:** {total_entries}")
+        st.markdown(f'<div style="margin-top: -1em;">**参加ルーム数:** {total_entries}</div>', unsafe_allow_html=True)
 
     st.markdown("---")
+
+def get_duration_category(start_ts, end_ts):
+    """
+    イベント期間からカテゴリを判断します。
+    """
+    duration = timedelta(seconds=end_ts - start_ts)
+    if duration <= timedelta(days=3):
+        return "3日以内"
+    elif duration <= timedelta(days=7):
+        return "1週間"
+    elif duration <= timedelta(days=10):
+        return "10日"
+    elif duration <= timedelta(days=14):
+        return "2週間"
+    else:
+        return "その他"
 
 
 # --- メイン処理 ---
@@ -154,10 +174,11 @@ def main():
     if not events:
         st.info("該当するイベントはありませんでした。")
     else:
+        # --- フィルタリングオプション ---
         # 開始日フィルタの選択肢を生成
         start_dates = sorted(list(set([
-            datetime.fromtimestamp(e['started_at']).date() for e in events if 'started_at' in e
-        ])))
+            datetime.fromtimestamp(e['started_at'], JST).date() for e in events if 'started_at' in e
+        ])), reverse=True)
         
         # 日付と曜日の辞書を作成
         date_options = {
@@ -169,17 +190,44 @@ def main():
             "開始日でフィルタ",
             options=list(date_options.keys())
         )
+
+        # 期間でフィルタ
+        duration_options = ["3日以内", "1週間", "10日", "2週間", "その他"]
+        selected_durations = st.sidebar.multiselect(
+            "期間でフィルタ",
+            options=duration_options
+        )
+
+        # 対象でフィルタ
+        target_options = ["全ライバー", "対象者限定"]
+        selected_targets = st.sidebar.multiselect(
+            "対象でフィルタ",
+            options=target_options
+        )
         
         # フィルタリングされたイベントリスト
-        filtered_events = []
+        filtered_events = events
+        
         if selected_start_dates:
             selected_dates_set = {date_options[d] for d in selected_start_dates}
             filtered_events = [
-                e for e in events 
-                if 'started_at' in e and datetime.fromtimestamp(e['started_at']).date() in selected_dates_set
+                e for e in filtered_events
+                if 'started_at' in e and datetime.fromtimestamp(e['started_at'], JST).date() in selected_dates_set
             ]
-        else:
-            filtered_events = events
+
+        if selected_durations:
+            filtered_events = [
+                e for e in filtered_events
+                if get_duration_category(e['started_at'], e['ended_at']) in selected_durations
+            ]
+        
+        if selected_targets:
+            target_map = {"全ライバー": False, "対象者限定": True}
+            selected_target_values = {target_map[t] for t in selected_targets}
+            filtered_events = [
+                e for e in filtered_events
+                if e.get('is_entry_scope_inner') in selected_target_values
+            ]
 
         st.success(f"{len(filtered_events)}件のイベントが見つかりました。")
         st.markdown("---")
