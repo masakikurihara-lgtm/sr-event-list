@@ -20,6 +20,9 @@ EVENT_PAGE_BASE_URL = "https://www.showroom-live.com/event/"
 ROOM_LIST_URL = "https://mksoul-pro.com/showroom/file/room_list.csv"
 # --- データ取得関数 ---
 
+if "authenticated" not in st.session_state:  #認証用
+    st.session_state.authenticated = False  #認証用
+
 @st.cache_data(ttl=600)  # 10分間キャッシュを保持
 def get_events(statuses):
     """
