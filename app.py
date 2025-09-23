@@ -3,6 +3,9 @@ import requests
 from datetime import datetime, timedelta
 import time
 import pytz
+import pandas as pd
+import io
+
 
 # 日本時間(JST)のタイムゾーンを設定
 JST = pytz.timezone('Asia/Tokyo')
