@@ -230,51 +230,6 @@ def main():
     if use_finished:
         selected_statuses.append(status_options["終了"])
 
-    # --- mksp認証時のみ表示する特殊機能 ---
-    if st.session_state.mksp_authenticated:
-        st.sidebar.header("特別機能")
-        # ダウンロードボタンを追加
-        if st.sidebar.button("全イベントデータをダウンロード"):
-            try:
-                # 開催中のイベントを全て取得
-                with st.spinner("ダウンロード用のイベントデータを取得中..."):
-                    all_events_to_download = get_events(selected_statuses)
-
-                # 必要な項目を抽出
-                events_for_df = []
-                for event in all_events_to_download:
-                    # 必須項目が揃っているか確認
-                    if all(k in event for k in ["event_id", "is_event_block", "is_entry_scope_inner", "event_name", "image_m", "started_at", "ended_at", "event_url_key", "show_ranking"]):
-                        event_data = {
-                            "event_id": event["event_id"],
-                            "is_event_block": event["is_event_block"],
-                            "is_entry_scope_inner": event["is_entry_scope_inner"],
-                            "event_name": event["event_name"],
-                            "image_m": event["image_m"],
-                            "started_at": datetime.fromtimestamp(event["started_at"], JST).strftime('%Y/%m/%d %H:%M'),
-                            "ended_at": datetime.fromtimestamp(event["ended_at"], JST).strftime('%Y/%m/%d %H:%M'),
-                            "event_url_key": event["event_url_key"],
-                            "show_ranking": event["show_ranking"]
-                        }
-                        events_for_df.append(event_data)
-                
-                if events_for_df:
-                    df = pd.DataFrame(events_for_df)
-                    # CSV形式に変換
-                    csv_data = df.to_csv(index=False).encode('utf-8')
-                    st.sidebar.download_button(
-                        label="ダウンロード開始",
-                        data=csv_data,
-                        file_name=f"showroom_events_{datetime.now(JST).strftime('%Y%m%d_%H%M%S')}.csv",
-                        mime="text/csv",
-                        key="download_button_trigger",
-                    )
-                    st.sidebar.success("ダウンロード準備ができました。上記のボタンをクリックしてください。")
-                else:
-                    st.sidebar.warning("ダウンロード可能なイベントデータがありませんでした。")
-            except Exception as e:
-                st.sidebar.error(f"データのダウンロード中にエラーが発生しました: {e}")
-
     # --- イベント情報表示 ---
     if not selected_statuses:
         st.warning("表示するステータスをサイドバーで1つ以上選択してください。")
@@ -317,6 +272,51 @@ def main():
             "対象でフィルタ",
             options=target_options
         )
+        
+        # --- mksp認証時のみ表示する特殊機能 ---
+        if st.session_state.mksp_authenticated:
+            st.sidebar.header("特別機能")
+            # ダウンロードボタンを追加
+            if st.sidebar.button("全イベントデータをダウンロード"):
+                try:
+                    # 開催中のイベントを全て取得
+                    with st.spinner("ダウンロード用のイベントデータを取得中..."):
+                        all_events_to_download = get_events(selected_statuses)
+
+                    # 必要な項目を抽出
+                    events_for_df = []
+                    for event in all_events_to_download:
+                        # 必須項目が揃っているか確認
+                        if all(k in event for k in ["event_id", "is_event_block", "is_entry_scope_inner", "event_name", "image_m", "started_at", "ended_at", "event_url_key", "show_ranking"]):
+                            event_data = {
+                                "event_id": event["event_id"],
+                                "is_event_block": event["is_event_block"],
+                                "is_entry_scope_inner": event["is_entry_scope_inner"],
+                                "event_name": event["event_name"],
+                                "image_m": event["image_m"],
+                                "started_at": datetime.fromtimestamp(event["started_at"], JST).strftime('%Y/%m/%d %H:%M'),
+                                "ended_at": datetime.fromtimestamp(event["ended_at"], JST).strftime('%Y/%m/%d %H:%M'),
+                                "event_url_key": event["event_url_key"],
+                                "show_ranking": event["show_ranking"]
+                            }
+                            events_for_df.append(event_data)
+                    
+                    if events_for_df:
+                        df = pd.DataFrame(events_for_df)
+                        # CSV形式に変換 (encodingをshift-jisに変更)
+                        csv_data = df.to_csv(index=False, encoding='shift-jis').encode('shift-jis')
+                        st.sidebar.download_button(
+                            label="ダウンロード開始",
+                            data=csv_data,
+                            file_name=f"showroom_events_{datetime.now(JST).strftime('%Y%m%d_%H%M%S')}.csv",
+                            mime="text/csv",
+                            key="download_button_trigger",
+                        )
+                        st.sidebar.success("ダウンロード準備ができました。上記のボタンをクリックしてください。")
+                    else:
+                        st.sidebar.warning("ダウンロード可能なイベントデータがありませんでした。")
+                except Exception as e:
+                    st.sidebar.error(f"データのダウンロード中にエラーが発生しました: {e}")
         
         # フィルタリングされたイベントリスト
         filtered_events = events
