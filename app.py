@@ -119,7 +119,7 @@ def get_past_events_from_files():
     
     return all_past_events.to_dict('records')
 
-@st.cache_data(ttl=300)  # 5分間キャッシュを保持
+#@st.cache_data(ttl=300)  # 5分間キャッシュを保持
 def get_total_entries(event_id):
     """
     指定されたイベントの総参加ルーム数を取得します。
