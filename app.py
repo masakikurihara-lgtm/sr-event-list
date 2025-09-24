@@ -416,7 +416,7 @@ def main():
         # 認証されていればダウンロードボタンとタイムスタンプ変換機能をここに配置
         if st.session_state.mksp_authenticated:
             st.sidebar.header("特別機能")
-            if st.sidebar.button("全イベントデータをダウンロード"):
+            if st.sidebar.button("ダウンロード準備"):
                 try:
                     all_statuses_to_download = [1, 3, 4]
                     with st.spinner("ダウンロード用の全イベントデータを取得中..."):
