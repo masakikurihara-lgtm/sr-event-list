@@ -119,7 +119,7 @@ def get_past_events_from_files():
     
     return all_past_events.to_dict('records')
 
-#@st.cache_data(ttl=300)  # 5分間キャッシュを保持
+@st.cache_data(ttl=300)  # 5分間キャッシュを保持
 def get_total_entries(event_id):
     """
     指定されたイベントの総参加ルーム数を取得します。
@@ -293,229 +293,232 @@ def main():
 
     if not selected_statuses and not use_past_bu:
         st.warning("表示するステータスをサイドバーで1つ以上選択してください。")
-    
+        st.stop()
     
     # 選択されたステータスに基づいてイベント情報を取得
-    # 辞書を使って重複を確実に排除
-    unique_events_dict = {}
+    all_events_list = []
+    
     if selected_statuses:
         with st.spinner("イベント情報を取得中..."):
             fetched_events = get_events(selected_statuses)
-            for event in fetched_events:
-                unique_events_dict[event['event_id']] = event
+            all_events_list.extend(fetched_events)
     
     # 「終了(BU)」のデータ取得
     if use_past_bu:
         with st.spinner("過去のイベントデータを取得・処理中..."):
             past_events = get_past_events_from_files()
-            for event in past_events:
-                unique_events_dict[event['event_id']] = event
+            all_events_list.extend(past_events)
 
-    # 辞書の値をリストに変換して、フィルタリング処理に進む
-    all_events = list(unique_events_dict.values())
-    original_event_count = len(all_events)
-
-    if not all_events:
+    if not all_events_list:
         st.info("該当するイベントはありませんでした。")
         st.stop()
-    else:
-        # --- フィルタリングオプション ---
-        # 開始日フィルタの選択肢を生成
-        start_dates = sorted(list(set([
-            datetime.fromtimestamp(e['started_at'], JST).date() for e in all_events if 'started_at' in e
-        ])), reverse=True)
-        
-        # 日付と曜日の辞書を作成
-        date_options = {
-            d.strftime('%Y/%m/%d') + f"({['月', '火', '水', '木', '金', '土', '日'][d.weekday()]})": d
-            for d in start_dates
-        }
-        
-        selected_start_dates = st.sidebar.multiselect(
-            "開始日でフィルタ",
-            options=list(date_options.keys())
-        )
-        
-        # 期間でフィルタ
-        duration_options = ["3日以内", "1週間", "10日", "2週間", "その他"]
-        selected_durations = st.sidebar.multiselect(
-            "期間でフィルタ",
-            options=duration_options
+    
+    # Pandas DataFrameに変換して重複を排除
+    df = pd.DataFrame(all_events_list)
+    if not df.empty:
+        df.drop_duplicates(subset=["event_id"], keep='first', inplace=True)
+    
+    # 辞書のリストに戻す
+    all_events = df.to_dict('records')
+    
+
+    # --- フィルタリングオプション ---
+    # 開始日フィルタの選択肢を生成
+    start_dates = sorted(list(set([
+        datetime.fromtimestamp(e['started_at'], JST).date() for e in all_events if 'started_at' in e
+    ])), reverse=True)
+    
+    # 日付と曜日の辞書を作成
+    date_options = {
+        d.strftime('%Y/%m/%d') + f"({['月', '火', '水', '木', '金', '土', '日'][d.weekday()]})": d
+        for d in start_dates
+    }
+    
+    selected_start_dates = st.sidebar.multiselect(
+        "開始日でフィルタ",
+        options=list(date_options.keys())
+    )
+    
+    # 期間でフィルタ
+    duration_options = ["3日以内", "1週間", "10日", "2週間", "その他"]
+    selected_durations = st.sidebar.multiselect(
+        "期間でフィルタ",
+        options=duration_options
+    )
+
+    # 対象でフィルタ
+    target_options = ["全ライバー", "対象者限定"]
+    selected_targets = st.sidebar.multiselect(
+        "対象でフィルタ",
+        options=target_options
+    )
+    
+    # 認証されていればダウンロードボタンとタイムスタンプ変換機能をここに配置
+    if st.session_state.mksp_authenticated:
+        st.sidebar.header("特別機能")
+        if st.sidebar.button("全イベントデータをダウンロード"):
+            try:
+                all_statuses_to_download = [1, 3, 4]
+                with st.spinner("ダウンロード用の全イベントデータを取得中..."):
+                    all_events_to_download = get_events(all_statuses_to_download)
+                events_for_df = []
+                for event in all_events_to_download:
+                    if all(k in event for k in ["event_id", "is_event_block", "is_entry_scope_inner", "event_name", "image_m", "started_at", "ended_at", "event_url_key", "show_ranking"]):
+                        event_data = {
+                            "event_id": event["event_id"],
+                            "is_event_block": event["is_event_block"],
+                            "is_entry_scope_inner": event["is_entry_scope_inner"],
+                            "event_name": event["event_name"],
+                            "image_m": event["image_m"],
+                            "started_at": event["started_at"], # Unixタイムスタンプ形式に戻す
+                            "ended_at": event["ended_at"],     # Unixタイムスタンプ形式に戻す
+                            "event_url_key": event["event_url_key"],
+                            "show_ranking": event["show_ranking"]
+                        }
+                        events_for_df.append(event_data)
+                
+                if events_for_df:
+                    df = pd.DataFrame(events_for_df)
+                    csv_data = df.to_csv(index=False).encode('utf-8-sig')
+                    st.sidebar.download_button(
+                        label="ダウンロード開始",
+                        data=csv_data,
+                        file_name=f"showroom_events_{datetime.now(JST).strftime('%Y%m%d_%H%M%S')}.csv",
+                        mime="text/csv",
+                        key="download_button_trigger",
+                    )
+                    st.sidebar.success("ダウンロード準備ができました。上記のボタンをクリックしてください。")
+                else:
+                    st.sidebar.warning("ダウンロード可能なイベントデータがありませんでした。")
+            except Exception as e:
+                st.sidebar.error(f"データのダウンロード中にエラーが発生しました: {e}")
+
+        # タイムスタンプ変換機能
+        st.sidebar.markdown("---")
+        st.sidebar.markdown("#### 🕒 タイムスタンプ変換")
+        timestamp_input = st.sidebar.text_input(
+            "タイムスタンプを入力",
+            placeholder="例: 1754902800",
+            key="timestamp_input"
         )
 
-        # 対象でフィルタ
-        target_options = ["全ライバー", "対象者限定"]
-        selected_targets = st.sidebar.multiselect(
-            "対象でフィルタ",
-            options=target_options
-        )
-        
-        # 認証されていればダウンロードボタンとタイムスタンプ変換機能をここに配置
-        if st.session_state.mksp_authenticated:
-            st.sidebar.header("特別機能")
-            if st.sidebar.button("全イベントデータをダウンロード"):
+        if st.sidebar.button("タイムスタンプから日時へ変換"):
+            if timestamp_input and timestamp_input.isdigit():
                 try:
-                    all_statuses_to_download = [1, 3, 4]
-                    with st.spinner("ダウンロード用の全イベントデータを取得中..."):
-                        all_events_to_download = get_events(all_statuses_to_download)
-                    events_for_df = []
-                    for event in all_events_to_download:
-                        if all(k in event for k in ["event_id", "is_event_block", "is_entry_scope_inner", "event_name", "image_m", "started_at", "ended_at", "event_url_key", "show_ranking"]):
-                            event_data = {
-                                "event_id": event["event_id"],
-                                "is_event_block": event["is_event_block"],
-                                "is_entry_scope_inner": event["is_entry_scope_inner"],
-                                "event_name": event["event_name"],
-                                "image_m": event["image_m"],
-                                "started_at": event["started_at"], # Unixタイムスタンプ形式に戻す
-                                "ended_at": event["ended_at"],     # Unixタイムスタンプ形式に戻す
-                                "event_url_key": event["event_url_key"],
-                                "show_ranking": event["show_ranking"]
-                            }
-                            events_for_df.append(event_data)
-                    
-                    if events_for_df:
-                        df = pd.DataFrame(events_for_df)
-                        csv_data = df.to_csv(index=False).encode('utf-8-sig')
-                        st.sidebar.download_button(
-                            label="ダウンロード開始",
-                            data=csv_data,
-                            file_name=f"showroom_events_{datetime.now(JST).strftime('%Y%m%d_%H%M%S')}.csv",
-                            mime="text/csv",
-                            key="download_button_trigger",
-                        )
-                        st.sidebar.success("ダウンロード準備ができました。上記のボタンをクリックしてください。")
-                    else:
-                        st.sidebar.warning("ダウンロード可能なイベントデータがありませんでした。")
-                except Exception as e:
-                    st.sidebar.error(f"データのダウンロード中にエラーが発生しました: {e}")
+                    ts = int(timestamp_input)
+                    converted_dt = datetime.fromtimestamp(ts, JST)
+                    st.sidebar.success(
+                        f"**変換結果:**\n\n"
+                        f"**日時:** {converted_dt.strftime('%Y/%m/%d %H:%M:%S')}"
+                    )
+                except ValueError:
+                    st.sidebar.error("無効なタイムスタンプです。数値を入力してください。")
+            else:
+                st.sidebar.warning("タイムスタンプを入力してください。")
 
-            # タイムスタンプ変換機能
-            st.sidebar.markdown("---")
-            st.sidebar.markdown("#### 🕒 タイムスタンプ変換")
-            timestamp_input = st.sidebar.text_input(
-                "タイムスタンプを入力",
-                placeholder="例: 1754902800",
-                key="timestamp_input"
+        # 日時からタイムスタンプへ変換
+        st.sidebar.markdown("---")
+        st.sidebar.markdown("#### 📅 日時からタイムスタンプへ変換")
+        datetime_input = st.sidebar.text_input(
+            "日時を入力 (YYYY/MM/DD HH:MM)",
+            placeholder="例: 2025/08/11 18:00",
+            key="datetime_input"
+        )
+        
+        # 日時を「開始時間」のタイムスタンプに変換するボタン
+        if st.sidebar.button("日時から開始タイムスタンプへ変換"):
+            if datetime_input:
+                try:
+                    dt_obj_naive = datetime.strptime(datetime_input.strip(), '%Y/%m/%d %H:%M').replace(second=0)
+                    dt_obj = JST.localize(dt_obj_naive, is_dst=None)
+                    timestamp = int(dt_obj.timestamp())
+                    st.sidebar.success(
+                        f"**開始タイムスタンプの変換結果:**\n\n"
+                        f"**タイムスタンプ:** {timestamp}"
+                    )
+                except ValueError:
+                    st.sidebar.error("無効な日時形式です。'YYYY/MM/DD HH:MM'形式で入力してください。")
+            else:
+                st.sidebar.warning("日時を入力してください。")
+        
+        # 日時を「終了時間」のタイムスタンプに変換するボタン
+        if st.sidebar.button("日時から終了タイムスタンプへ変換"):
+            if datetime_input:
+                try:
+                    dt_obj_naive = datetime.strptime(datetime_input.strip(), '%Y/%m/%d %H:%M').replace(second=59)
+                    dt_obj = JST.localize(dt_obj_naive, is_dst=None)
+                    timestamp = int(dt_obj.timestamp())
+                    st.sidebar.success(
+                        f"**終了タイムスタンプの変換結果:**\n\n"
+                        f"**タイムスタンプ:** {timestamp}"
+                    )
+                except ValueError:
+                    st.sidebar.error("無効な日時形式です。'YYYY/MM/DD HH:MM'形式で入力してください。")
+            else:
+                st.sidebar.warning("日時を入力してください。")
+    
+    # フィルタリングされたイベントリスト
+    filtered_events = all_events
+    
+    if selected_start_dates:
+        selected_dates_set = {date_options[d] for d in selected_start_dates}
+        filtered_events = [
+            e for e in filtered_events
+            if 'started_at' in e and datetime.fromtimestamp(e['started_at'], JST).date() in selected_dates_set
+        ]
+
+    if selected_durations:
+        filtered_events = [
+            e for e in filtered_events
+            if get_duration_category(e['started_at'], e['ended_at']) in selected_durations
+        ]
+    
+    if selected_targets:
+        target_map = {"全ライバー": False, "対象者限定": True}
+        selected_target_values = {target_map[t] for t in selected_targets}
+        filtered_events = [
+            e for e in filtered_events
+            if e.get('is_entry_scope_inner') in selected_target_values
+        ]
+    
+    
+    if use_finished and use_past_bu:
+        st.success(f"{len(filtered_events)}件のイベントが見つかりました。")
+    else:
+        st.success(f"{len(filtered_events)}件のイベントが見つかりました。")
+    
+    st.markdown("---")
+    # 取得したイベント情報を1つずつ表示
+    for event in filtered_events:
+        col1, col2 = st.columns([1, 4])
+
+        with col1:
+            st.image(event['image_m'])
+
+        with col2:
+            event_url = f"{EVENT_PAGE_BASE_URL}{event['event_url_key']}"
+            st.markdown(
+                f'<div class="event-info"><strong><a href="{event_url}">{event["event_name"]}</a></strong></div>',
+                unsafe_allow_html=True
             )
 
-            if st.sidebar.button("タイムスタンプから日時へ変換"):
-                if timestamp_input and timestamp_input.isdigit():
-                    try:
-                        ts = int(timestamp_input)
-                        converted_dt = datetime.fromtimestamp(ts, JST)
-                        st.sidebar.success(
-                            f"**変換結果:**\n\n"
-                            f"**日時:** {converted_dt.strftime('%Y/%m/%d %H:%M:%S')}"
-                        )
-                    except ValueError:
-                        st.sidebar.error("無効なタイムスタンプです。数値を入力してください。")
-                else:
-                    st.sidebar.warning("タイムスタンプを入力してください。")
+            target_info = "対象者限定" if event.get("is_entry_scope_inner") else "全ライバー"
+            st.markdown(f'<div class="event-info"><strong>対象:</strong> {target_info}</div>', unsafe_allow_html=True)
 
-            # 日時からタイムスタンプへ変換
-            st.sidebar.markdown("---")
-            st.sidebar.markdown("#### 📅 日時からタイムスタンプへ変換")
-            datetime_input = st.sidebar.text_input(
-                "日時を入力 (YYYY/MM/DD HH:MM)",
-                placeholder="例: 2025/08/11 18:00",
-                key="datetime_input"
+            start_date = datetime.fromtimestamp(event['started_at'], JST).strftime('%Y/%m/%d %H:%M')
+            end_date = datetime.fromtimestamp(event['ended_at'], JST).strftime('%Y/%m/%d %H:%M')
+            st.markdown(
+                f'<div class="event-info"><strong>期間:</strong> {start_date} - {end_date}</div>',
+                unsafe_allow_html=True
             )
-            
-            # 日時を「開始時間」のタイムスタンプに変換するボタン
-            if st.sidebar.button("日時から開始タイムスタンプへ変換"):
-                if datetime_input:
-                    try:
-                        dt_obj_naive = datetime.strptime(datetime_input.strip(), '%Y/%m/%d %H:%M').replace(second=0)
-                        dt_obj = JST.localize(dt_obj_naive, is_dst=None)
-                        timestamp = int(dt_obj.timestamp())
-                        st.sidebar.success(
-                            f"**開始タイムスタンプの変換結果:**\n\n"
-                            f"**タイムスタンプ:** {timestamp}"
-                        )
-                    except ValueError:
-                        st.sidebar.error("無効な日時形式です。'YYYY/MM/DD HH:MM'形式で入力してください。")
-                else:
-                    st.sidebar.warning("日時を入力してください。")
-            
-            # 日時を「終了時間」のタイムスタンプに変換するボタン
-            if st.sidebar.button("日時から終了タイムスタンプへ変換"):
-                if datetime_input:
-                    try:
-                        dt_obj_naive = datetime.strptime(datetime_input.strip(), '%Y/%m/%d %H:%M').replace(second=59)
-                        dt_obj = JST.localize(dt_obj_naive, is_dst=None)
-                        timestamp = int(dt_obj.timestamp())
-                        st.sidebar.success(
-                            f"**終了タイムスタンプの変換結果:**\n\n"
-                            f"**タイムスタンプ:** {timestamp}"
-                        )
-                    except ValueError:
-                        st.sidebar.error("無効な日時形式です。'YYYY/MM/DD HH:MM'形式で入力してください。")
-                else:
-                    st.sidebar.warning("日時を入力してください。")
-        
-        # フィルタリングされたイベントリスト
-        filtered_events = all_events
-        
-        if selected_start_dates:
-            selected_dates_set = {date_options[d] for d in selected_start_dates}
-            filtered_events = [
-                e for e in filtered_events
-                if 'started_at' in e and datetime.fromtimestamp(e['started_at'], JST).date() in selected_dates_set
-            ]
 
-        if selected_durations:
-            filtered_events = [
-                e for e in filtered_events
-                if get_duration_category(e['started_at'], e['ended_at']) in selected_durations
-            ]
-        
-        if selected_targets:
-            target_map = {"全ライバー": False, "対象者限定": True}
-            selected_target_values = {target_map[t] for t in selected_targets}
-            filtered_events = [
-                e for e in filtered_events
-                if e.get('is_entry_scope_inner') in selected_target_values
-            ]
-        
-        
-        if use_finished and use_past_bu:
-            st.success(f"{len(filtered_events)}件のイベントが見つかりました。ただし、重複データは1件のみ表示しています。")
-        else:
-            st.success(f"{len(filtered_events)}件のイベントが見つかりました。")
-        
+            total_entries = get_total_entries(event['event_id'])
+            st.markdown(
+                f'<div class="event-info"><strong>参加ルーム数:</strong> {total_entries}</div>',
+                unsafe_allow_html=True
+            )
+
         st.markdown("---")
-        # 取得したイベント情報を1つずつ表示
-        for event in filtered_events:
-            col1, col2 = st.columns([1, 4])
-
-            with col1:
-                st.image(event['image_m'])
-
-            with col2:
-                event_url = f"{EVENT_PAGE_BASE_URL}{event['event_url_key']}"
-                st.markdown(
-                    f'<div class="event-info"><strong><a href="{event_url}">{event["event_name"]}</a></strong></div>',
-                    unsafe_allow_html=True
-                )
-
-                target_info = "対象者限定" if event.get("is_entry_scope_inner") else "全ライバー"
-                st.markdown(f'<div class="event-info"><strong>対象:</strong> {target_info}</div>', unsafe_allow_html=True)
-
-                start_date = datetime.fromtimestamp(event['started_at'], JST).strftime('%Y/%m/%d %H:%M')
-                end_date = datetime.fromtimestamp(event['ended_at'], JST).strftime('%Y/%m/%d %H:%M')
-                st.markdown(
-                    f'<div class="event-info"><strong>期間:</strong> {start_date} - {end_date}</div>',
-                    unsafe_allow_html=True
-                )
-
-                total_entries = get_total_entries(event['event_id'])
-                st.markdown(
-                    f'<div class="event-info"><strong>参加ルーム数:</strong> {total_entries}</div>',
-                    unsafe_allow_html=True
-                )
-
-            st.markdown("---")
             
 
 if __name__ == "__main__":
