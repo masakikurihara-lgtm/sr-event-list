@@ -21,8 +21,10 @@ API_EVENT_ROOM_LIST_URL = "https://www.showroom-live.com/api/event/room_list"
 EVENT_PAGE_BASE_URL = "https://www.showroom-live.com/event/"
 #MKsoulルームリスト
 ROOM_LIST_URL = "https://mksoul-pro.com/showroom/file/room_list.csv"
-# 過去イベントデータファイルのURLを格納しているインデックスファイルのURL
-PAST_EVENT_INDEX_URL = "https://mksoul-pro.com/showroom/file/sr-event-archive-list-index.txt"
+# 過去イベントデータファイルのURLリスト
+PAST_EVENT_DATA_URLS = [
+    "https://mksoul-pro.com/showroom/file/showroom_events_20250923_175019.csv"
+]
 
 
 # --- データ取得関数 ---
@@ -67,8 +69,7 @@ def get_events(statuses):
 @st.cache_data(ttl=600)
 def get_past_events_from_files():
     """
-    インデックスファイルから過去のイベントデータのURLリストを取得し、
-    各URLからデータを取得してマージ・重複排除します。
+    過去イベントデータのURLリストからデータを取得してマージ・重複排除します。
     """
     all_past_events = pd.DataFrame()
     column_names = [
@@ -76,20 +77,10 @@ def get_past_events_from_files():
         "image_m", "started_at", "ended_at", "event_url_key", "show_ranking"
     ]
     
-    # インデックスファイルからURLリストを取得
-    urls = []
-    try:
-        response = requests.get(PAST_EVENT_INDEX_URL, headers=HEADERS, timeout=10)
-        response.raise_for_status()
-        urls = response.text.strip().split('\n')
-    except requests.exceptions.RequestException as e:
-        st.warning(f"インデックスファイル取得中にエラーが発生しました: {e}")
-        return all_past_events.to_dict('records')
-
     # 各URLからCSVデータを取得
-    for url in urls:
+    for url in PAST_EVENT_DATA_URLS:
         try:
-            response = requests.get(url.strip(), headers=HEADERS, timeout=10)
+            response = requests.get(url, headers=HEADERS, timeout=10)
             if response.status_code == 404:
                 continue
             response.raise_for_status()
