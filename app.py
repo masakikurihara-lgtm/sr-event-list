@@ -455,14 +455,14 @@ def main():
 
             # タイムスタンプ変換機能
             st.sidebar.markdown("---")
-            st.sidebar.markdown("#### 🕒 タイムスタンプ変換")
+            st.sidebar.markdown("#### 🕒 タイムスタンプから日時へ変換")
             timestamp_input = st.sidebar.text_input(
                 "タイムスタンプを入力",
                 placeholder="例: 1754902800",
                 key="timestamp_input"
             )
 
-            if st.sidebar.button("TS⇒日時"):
+            if st.sidebar.button("タイムスタンプから日時へ変換"):
                 if timestamp_input and timestamp_input.isdigit():
                     try:
                         ts = int(timestamp_input)
