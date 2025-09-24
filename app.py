@@ -462,7 +462,7 @@ def main():
                 key="timestamp_input"
             )
 
-            if st.sidebar.button("タイムスタンプから日時へ変換"):
+            if st.sidebar.button("TS⇒日時"):
                 if timestamp_input and timestamp_input.isdigit():
                     try:
                         ts = int(timestamp_input)
