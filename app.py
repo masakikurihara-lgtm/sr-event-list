@@ -330,9 +330,18 @@ def main():
     # 選択されたステータスに基づいてイベント情報を取得
     # 辞書を使って重複を確実に排除
     unique_events_dict = {}
+
+    # --- カウント用の変数を初期化（追加） ---
+    fetched_count_raw = 0
+    past_count_raw = 0
+    fetched_events = []  # 参照安全のため初期化
+    past_events = []     # 参照安全のため初期化
+
     if selected_statuses:
         with st.spinner("イベント情報を取得中..."):
             fetched_events = get_events(selected_statuses)
+            # --- API取得分の「生」件数を保持（変更） ---
+            fetched_count_raw = len(fetched_events)
             for event in fetched_events:
                 # --- 変更: event_id を正規化して辞書キーにする ---
                 eid = normalize_event_id_val(event.get('event_id'))
@@ -348,6 +357,8 @@ def main():
     if use_past_bu:
         with st.spinner("過去のイベントデータを取得・処理中..."):
             past_events = get_past_events_from_files()
+            # --- BU取得分の「生」件数を保持（変更） ---
+            past_count_raw = len(past_events)
             for event in past_events:
                 # --- 変更: event_id を正規化して一致判定する（既に存在するIDは追加しない） ---
                 eid = normalize_event_id_val(event.get('event_id'))
@@ -361,6 +372,11 @@ def main():
     # 辞書の値をリストに変換して、フィルタリング処理に進む
     all_events = list(unique_events_dict.values())
     original_event_count = len(all_events)
+
+    # --- 取得前の合計（生）件数とユニーク件数の差分を算出（追加） ---
+    total_raw = fetched_count_raw + past_count_raw
+    unique_total_pre_filter = len(all_events)
+    duplicates_removed_pre_filter = max(0, total_raw - unique_total_pre_filter)
 
     if not all_events:
         st.info("該当するイベントはありませんでした。")
@@ -526,10 +542,12 @@ def main():
             ]
         
         
-        if use_finished and use_past_bu:
-            st.success(f"{len(filtered_events)}件のイベントが見つかりました。ただし、重複データは1件のみ表示しています。")
+        # --- 表示メッセージの改善（重複がある場合のみ注記を付ける） ---
+        filtered_count = len(filtered_events)
+        if use_finished and use_past_bu and duplicates_removed_pre_filter > 0:
+            st.success(f"{filtered_count}件のイベントが見つかりました（取得件数 {total_raw} 件のうち重複 {duplicates_removed_pre_filter} 件を除外しています）。")
         else:
-            st.success(f"{len(filtered_events)}件のイベントが見つかりました。")
+            st.success(f"{filtered_count}件のイベントが見つかりました。")
         
         st.markdown("---")
         # 取得したイベント情報を1つずつ表示
