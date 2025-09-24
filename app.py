@@ -542,10 +542,10 @@ def main():
             ]
         
         
-        # --- 表示メッセージの改善（重複がある場合のみ注記を付ける） ---
+        # --- 表示メッセージの改善（汎用的な文言） ---
         filtered_count = len(filtered_events)
         if use_finished and use_past_bu and duplicates_removed_pre_filter > 0:
-            st.success(f"{filtered_count}件のイベントが見つかりました（取得件数 {total_raw} 件のうち重複 {duplicates_removed_pre_filter} 件を除外しています）。")
+            st.success(f"{filtered_count}件のイベントが見つかりました。※重複データが存在した場合は1件のみ表示しています。")
         else:
             st.success(f"{filtered_count}件のイベントが見つかりました。")
         
