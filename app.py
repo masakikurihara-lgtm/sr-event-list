@@ -416,6 +416,7 @@ def main():
         # 認証されていればダウンロードボタンとタイムスタンプ変換機能をここに配置
         if st.session_state.mksp_authenticated:
             st.sidebar.markdown("")
+            st.sidebar.markdown("")
             st.sidebar.markdown("---")
             st.sidebar.header("特別機能")
             if st.sidebar.button("ダウンロード準備"):
