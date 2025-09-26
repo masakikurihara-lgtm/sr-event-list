@@ -102,7 +102,7 @@ def update_archive_file():
 
     # 2️⃣ 既存ファイルを取得
     st.info("💾 FTPサーバー上の既存バックアップを取得中...")
-    existing_csv = ftp_download("/showroom/file/sr-event-archive.csv")
+    existing_csv = ftp_download("/mksoul-pro.com/showroom/file/sr-event-archive.csv")
     if existing_csv:
         old_df = pd.read_csv(io.StringIO(existing_csv))
     else:
@@ -118,14 +118,14 @@ def update_archive_file():
     # 4️⃣ 上書きアップロード
     st.info("☁️ FTPサーバーへアップロード中...")
     csv_bytes = merged_df.to_csv(index=False, encoding="utf-8-sig").encode("utf-8-sig")
-    ftp_upload("/showroom/file/sr-event-archive.csv", csv_bytes)
+    ftp_upload("/mksoul-pro.com/showroom/file/sr-event-archive.csv", csv_bytes)
 
     # 5️⃣ ログ更新
     log_text = f"[{now_str}] 更新完了: {added_count}件追加 / 合計 {after_count}件\n"
-    existing_log = ftp_download("/showroom/file/sr-event-archive-log.txt")
+    existing_log = ftp_download("/mksoul-pro.com/showroom/file/sr-event-archive-log.txt")
     if existing_log:
         log_text = existing_log + log_text
-    ftp_upload("/showroom/file/sr-event-archive-log.txt", log_text.encode("utf-8"))
+    ftp_upload("/mksoul-pro.com/showroom/file/sr-event-archive-log.txt", log_text.encode("utf-8"))
 
     st.success(f"✅ バックアップ更新完了: {added_count}件追加（合計 {after_count}件）")
 
