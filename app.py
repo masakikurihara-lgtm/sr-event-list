@@ -89,18 +89,44 @@ def ftp_download(file_path):
 
 
 def update_archive_file():
-    """全イベントを取得→重複除外→sr-event-archive.csvを上書き→ログ追記"""
+    """全イベントを取得→必要項目を抽出→重複除外→sr-event-archive.csvを上書き→ログ追記"""
     JST = pytz.timezone('Asia/Tokyo')
     now_str = datetime.now(JST).strftime("%Y/%m/%d %H:%M:%S")
 
-    # 1️⃣ 全イベント取得
     st.info("📡 SHOWROOM APIから全イベント情報を取得中...")
     statuses = [1, 3, 4]
     new_events = get_events(statuses)
-    new_df = pd.DataFrame(new_events)
+
+    # ✅ 必要な9項目だけ抽出
+    filtered_events = []
+    for e in new_events:
+        try:
+            filtered_events.append({
+                "event_id": e.get("event_id"),
+                "is_event_block": e.get("is_event_block"),
+                "is_entry_scope_inner": e.get("is_entry_scope_inner"),
+                "event_name": e.get("event_name"),
+                "image_m": e.get("image_m"),
+                "started_at": e.get("started_at"),
+                "ended_at": e.get("ended_at"),
+                "event_url_key": e.get("event_url_key"),
+                "show_ranking": e.get("show_ranking")
+            })
+        except Exception:
+            continue
+
+    # DataFrame化
+    new_df = pd.DataFrame(filtered_events)
+    if new_df.empty:
+        st.warning("有効なイベントデータが取得できませんでした。")
+        return
+
+    # event_idを正規化
+    new_df["event_id"] = new_df["event_id"].apply(normalize_event_id_val)
+    new_df.dropna(subset=["event_id"], inplace=True)
     new_df.drop_duplicates(subset=["event_id"], inplace=True)
 
-    # 2️⃣ 既存ファイルを取得
+    # 既存バックアップを取得
     st.info("💾 FTPサーバー上の既存バックアップを取得中...")
     existing_csv = ftp_download("/mksoul-pro.com/showroom/file/sr-event-archive.csv")
     if existing_csv:
@@ -108,19 +134,19 @@ def update_archive_file():
     else:
         old_df = pd.DataFrame(columns=new_df.columns)
 
-    # 3️⃣ マージ & 重複除外
+    # 重複除外して統合
     merged_df = pd.concat([old_df, new_df], ignore_index=True)
     before_count = len(old_df)
     merged_df.drop_duplicates(subset=["event_id"], keep="last", inplace=True)
     after_count = len(merged_df)
     added_count = after_count - before_count
 
-    # 4️⃣ 上書きアップロード
+    # CSV保存
     st.info("☁️ FTPサーバーへアップロード中...")
     csv_bytes = merged_df.to_csv(index=False, encoding="utf-8-sig").encode("utf-8-sig")
     ftp_upload("/mksoul-pro.com/showroom/file/sr-event-archive.csv", csv_bytes)
 
-    # 5️⃣ ログ更新
+    # ログ追記
     log_text = f"[{now_str}] 更新完了: {added_count}件追加 / 合計 {after_count}件\n"
     existing_log = ftp_download("/mksoul-pro.com/showroom/file/sr-event-archive-log.txt")
     if existing_log:
