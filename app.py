@@ -201,60 +201,57 @@ def get_events(statuses):
                 break
     return all_events
 
+
 @st.cache_data(ttl=600)
 def get_past_events_from_files():
     """
-    インデックスファイルから過去のイベントデータのURLリストを取得し、
-    各URLからデータを取得してマージ・重複排除します。
+    終了(BU)チェック時に使用される過去イベントデータを取得。
+    これまでのインデックス方式ではなく、
+    固定ファイル https://mksoul-pro.com/showroom/file/sr-event-archive.csv を直接読み込む。
     """
     all_past_events = pd.DataFrame()
     column_names = [
         "event_id", "is_event_block", "is_entry_scope_inner", "event_name",
         "image_m", "started_at", "ended_at", "event_url_key", "show_ranking"
     ]
-    
-    # インデックスファイルからURLリストを取得
-    urls = []
+
+    fixed_csv_url = "https://mksoul-pro.com/showroom/file/sr-event-archive.csv"
+
     try:
-        response = requests.get(PAST_EVENT_INDEX_URL, headers=HEADERS, timeout=10)
+        response = requests.get(fixed_csv_url, headers=HEADERS, timeout=10)
         response.raise_for_status()
-        urls = response.text.strip().split('\n')
-    except requests.exceptions.RequestException as e:
-        st.warning(f"インデックスファイル取得中にエラーが発生しました: {e}")
-        return all_past_events.to_dict('records')
+        csv_text = response.content.decode('utf-8-sig')
+        csv_file_like_object = io.StringIO(csv_text)
+        df = pd.read_csv(csv_file_like_object, dtype=str)
 
-    # 各URLからCSVデータを取得
-    for url in urls:
-        try:
-            response = requests.get(url.strip(), headers=HEADERS, timeout=10)
-            if response.status_code == 404:
-                continue
-            response.raise_for_status()
-            
-            csv_text = response.content.decode('utf-8-sig')
-            csv_file_like_object = io.StringIO(csv_text)
-            df = pd.read_csv(csv_file_like_object, header=None, names=column_names)
-            df['is_entry_scope_inner'] = df['is_entry_scope_inner'].astype(str).str.lower().str.strip() == 'true'
+        # 列名チェック（足りない列があれば補う）
+        for col in column_names:
+            if col not in df.columns:
+                df[col] = None
+        df = df[column_names]  # 列順を揃える
 
-            all_past_events = pd.concat([all_past_events, df], ignore_index=True)
-        except requests.exceptions.RequestException as e:
-            st.warning(f"過去イベントデータ取得中にエラーが発生しました (URL: {url}): {e}")
-        except Exception as e:
-            st.warning(f"過去イベントデータの処理中にエラーが発生しました (URL: {url}): {e}")
-    
-    if not all_past_events.empty:
-        # 'started_at' と 'ended_at' 列を数値に変換し、変換できない場合は NaN にする
-        all_past_events['started_at'] = pd.to_numeric(all_past_events['started_at'], errors='coerce')
-        all_past_events['ended_at'] = pd.to_numeric(all_past_events['ended_at'], errors='coerce')
-        # NaN がある行を削除
-        all_past_events.dropna(subset=['started_at', 'ended_at'], inplace=True)
-        # 重複行を削除（event_id ベース）
-        all_past_events.drop_duplicates(subset=["event_id"], keep='first', inplace=True)
-        # 'ended_at' が現在よりも過去のものを抽出
+        # 型整形
+        df['is_entry_scope_inner'] = df['is_entry_scope_inner'].astype(str).str.lower().str.strip() == 'true'
+        df['started_at'] = pd.to_numeric(df['started_at'], errors='coerce')
+        df['ended_at'] = pd.to_numeric(df['ended_at'], errors='coerce')
+        df.dropna(subset=['started_at', 'ended_at'], inplace=True)
+        df['event_id'] = df['event_id'].apply(normalize_event_id_val)
+        df.dropna(subset=['event_id'], inplace=True)
+        df.drop_duplicates(subset=['event_id'], keep='last', inplace=True)
+
+        # 終了済みイベントのみに絞る
         now_timestamp = int(datetime.now(JST).timestamp())
-        all_past_events = all_past_events[all_past_events['ended_at'] < now_timestamp]
-    
+        df = df[df['ended_at'] < now_timestamp]
+
+        all_past_events = df.copy()
+
+    except requests.exceptions.RequestException as e:
+        st.warning(f"バックアップCSV取得中にエラーが発生しました: {e}")
+    except Exception as e:
+        st.warning(f"バックアップCSVの処理中にエラーが発生しました: {e}")
+
     return all_past_events.to_dict('records')
+
 
 #@st.cache_data(ttl=300)  # 5分間キャッシュを保持
 def get_total_entries(event_id):
