@@ -6,6 +6,7 @@ import pytz
 import pandas as pd
 import io
 import re
+import ftplib  # ✅ FTPアップロード機能用
 
 # 日本時間(JST)のタイムゾーンを設定
 JST = pytz.timezone('Asia/Tokyo')
@@ -58,6 +59,76 @@ def normalize_event_id_val(val):
             return None
 
 # --- データ取得関数 ---
+
+# --- FTPヘルパー関数群 ---
+def ftp_upload(file_path, content_bytes):
+    """FTPサーバーにファイルをアップロード"""
+    ftp_host = st.secrets["ftp"]["host"]
+    ftp_user = st.secrets["ftp"]["user"]
+    ftp_pass = st.secrets["ftp"]["password"]
+    with ftplib.FTP(ftp_host) as ftp:
+        ftp.login(ftp_user, ftp_pass)
+        with io.BytesIO(content_bytes) as f:
+            ftp.storbinary(f"STOR {file_path}", f)
+
+
+def ftp_download(file_path):
+    """FTPサーバーからファイルをダウンロード（存在しない場合はNone）"""
+    ftp_host = st.secrets["ftp"]["host"]
+    ftp_user = st.secrets["ftp"]["user"]
+    ftp_pass = st.secrets["ftp"]["password"]
+    with ftplib.FTP(ftp_host) as ftp:
+        ftp.login(ftp_user, ftp_pass)
+        buffer = io.BytesIO()
+        try:
+            ftp.retrbinary(f"RETR {file_path}", buffer.write)
+            buffer.seek(0)
+            return buffer.getvalue().decode('utf-8-sig')
+        except Exception:
+            return None
+
+
+def update_archive_file():
+    """全イベントを取得→重複除外→sr-event-archive.csvを上書き→ログ追記"""
+    JST = pytz.timezone('Asia/Tokyo')
+    now_str = datetime.now(JST).strftime("%Y/%m/%d %H:%M:%S")
+
+    # 1️⃣ 全イベント取得
+    st.info("📡 SHOWROOM APIから全イベント情報を取得中...")
+    statuses = [1, 3, 4]
+    new_events = get_events(statuses)
+    new_df = pd.DataFrame(new_events)
+    new_df.drop_duplicates(subset=["event_id"], inplace=True)
+
+    # 2️⃣ 既存ファイルを取得
+    st.info("💾 FTPサーバー上の既存バックアップを取得中...")
+    existing_csv = ftp_download("/showroom/file/sr-event-archive.csv")
+    if existing_csv:
+        old_df = pd.read_csv(io.StringIO(existing_csv))
+    else:
+        old_df = pd.DataFrame(columns=new_df.columns)
+
+    # 3️⃣ マージ & 重複除外
+    merged_df = pd.concat([old_df, new_df], ignore_index=True)
+    before_count = len(old_df)
+    merged_df.drop_duplicates(subset=["event_id"], keep="last", inplace=True)
+    after_count = len(merged_df)
+    added_count = after_count - before_count
+
+    # 4️⃣ 上書きアップロード
+    st.info("☁️ FTPサーバーへアップロード中...")
+    csv_bytes = merged_df.to_csv(index=False, encoding="utf-8-sig").encode("utf-8-sig")
+    ftp_upload("/showroom/file/sr-event-archive.csv", csv_bytes)
+
+    # 5️⃣ ログ更新
+    log_text = f"[{now_str}] 更新完了: {added_count}件追加 / 合計 {after_count}件\n"
+    existing_log = ftp_download("/showroom/file/sr-event-archive-log.txt")
+    if existing_log:
+        log_text = existing_log + log_text
+    ftp_upload("/showroom/file/sr-event-archive-log.txt", log_text.encode("utf-8"))
+
+    st.success(f"✅ バックアップ更新完了: {added_count}件追加（合計 {after_count}件）")
+
 
 if "authenticated" not in st.session_state:  #認証用
     st.session_state.authenticated = False  #認証用
@@ -436,6 +507,14 @@ def main():
             st.sidebar.markdown("")
             st.sidebar.markdown("---")
             st.sidebar.header("特別機能")
+
+            # --- 🔄 バックアップ更新ボタン ---
+            if st.sidebar.button("バックアップ更新（自動取得・重複除外・上書き）"):
+                try:
+                    update_archive_file()
+                except Exception as e:
+                    st.sidebar.error(f"バックアップ更新中にエラーが発生しました: {e}")
+
             if st.sidebar.button("ダウンロード準備"):
                 try:
                     all_statuses_to_download = [1, 3, 4]
