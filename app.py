@@ -243,6 +243,9 @@ def get_past_events_from_files():
         now_timestamp = int(datetime.now(JST).timestamp())
         df = df[df['ended_at'] < now_timestamp]
 
+        # ✅ イベント終了日が新しい順にソート（ここが今回の追加）
+        df.sort_values(by="ended_at", ascending=False, inplace=True, ignore_index=True)
+
         all_past_events = df.copy()
 
     except requests.exceptions.RequestException as e:
