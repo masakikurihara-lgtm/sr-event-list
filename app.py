@@ -389,16 +389,33 @@ def main():
         ])), reverse=True)
         
         # 日付と曜日の辞書を作成
-        date_options = {
+        start_date_options = {
             d.strftime('%Y/%m/%d') + f"({['月', '火', '水', '木', '金', '土', '日'][d.weekday()]})": d
             for d in start_dates
         }
         
         selected_start_dates = st.sidebar.multiselect(
             "開始日でフィルタ",
-            options=list(date_options.keys())
+            options=list(start_date_options.keys())
         )
         
+        # ▼▼ 終了日でフィルタの選択肢を生成（ここから追加/修正） ▼▼
+        end_dates = sorted(list(set([
+            datetime.fromtimestamp(e['ended_at'], JST).date() for e in all_events if 'ended_at' in e
+        ])), reverse=True)
+        
+        # 日付と曜日の辞書を作成
+        end_date_options = {
+            d.strftime('%Y/%m/%d') + f"({['月', '火', '水', '木', '金', '土', '日'][d.weekday()]})": d
+            for d in end_dates
+        }
+        
+        selected_end_dates = st.sidebar.multiselect(
+            "終了日でフィルタ",
+            options=list(end_date_options.keys())
+        )
+        # ▲▲ 終了日でフィルタの選択肢を生成（ここまで追加/修正） ▲▲
+
         # 期間でフィルタ
         duration_options = ["3日以内", "1週間", "10日", "2週間", "その他"]
         selected_durations = st.sidebar.multiselect(
@@ -524,11 +541,22 @@ def main():
         filtered_events = all_events
         
         if selected_start_dates:
-            selected_dates_set = {date_options[d] for d in selected_start_dates}
+            # start_date_options を参照する
+            selected_dates_set = {start_date_options[d] for d in selected_start_dates}
             filtered_events = [
                 e for e in filtered_events
                 if 'started_at' in e and datetime.fromtimestamp(e['started_at'], JST).date() in selected_dates_set
             ]
+        
+        # ▼▼ 終了日フィルタの処理を追加（ここから追加/修正） ▼▼
+        if selected_end_dates:
+            # end_date_options を参照する
+            selected_dates_set = {end_date_options[d] for d in selected_end_dates}
+            filtered_events = [
+                e for e in filtered_events
+                if 'ended_at' in e and datetime.fromtimestamp(e['ended_at'], JST).date() in selected_dates_set
+            ]
+        # ▲▲ 終了日フィルタの処理を追加（ここまで追加/修正） ▲▲
 
         if selected_durations:
             filtered_events = [
