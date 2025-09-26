@@ -89,7 +89,7 @@ def ftp_download(file_path):
 
 
 def update_archive_file():
-    """全イベントを取得→必要項目を抽出→重複除外→sr-event-archive.csvを上書き→ログ追記"""
+    """全イベントを取得→必要項目を抽出→重複除外→sr-event-archive.csvを上書き→ログ追記＋DL"""
     JST = pytz.timezone('Asia/Tokyo')
     now_str = datetime.now(JST).strftime("%Y/%m/%d %H:%M:%S")
 
@@ -115,13 +115,12 @@ def update_archive_file():
         except Exception:
             continue
 
-    # DataFrame化
     new_df = pd.DataFrame(filtered_events)
     if new_df.empty:
         st.warning("有効なイベントデータが取得できませんでした。")
         return
 
-    # event_idを正規化
+    # event_id正規化
     new_df["event_id"] = new_df["event_id"].apply(normalize_event_id_val)
     new_df.dropna(subset=["event_id"], inplace=True)
     new_df.drop_duplicates(subset=["event_id"], inplace=True)
@@ -130,18 +129,19 @@ def update_archive_file():
     st.info("💾 FTPサーバー上の既存バックアップを取得中...")
     existing_csv = ftp_download("/mksoul-pro.com/showroom/file/sr-event-archive.csv")
     if existing_csv:
-        old_df = pd.read_csv(io.StringIO(existing_csv))
+        old_df = pd.read_csv(io.StringIO(existing_csv), dtype=str)
+        old_df["event_id"] = old_df["event_id"].apply(normalize_event_id_val)
     else:
         old_df = pd.DataFrame(columns=new_df.columns)
 
-    # 重複除外して統合
+    # 結合＋重複除外
     merged_df = pd.concat([old_df, new_df], ignore_index=True)
     before_count = len(old_df)
     merged_df.drop_duplicates(subset=["event_id"], keep="last", inplace=True)
     after_count = len(merged_df)
-    added_count = after_count - before_count
+    added_count = after_count - before_count  # ←このままでOK（マイナスも許容）
 
-    # CSV保存
+    # 上書きアップロード
     st.info("☁️ FTPサーバーへアップロード中...")
     csv_bytes = merged_df.to_csv(index=False, encoding="utf-8-sig").encode("utf-8-sig")
     ftp_upload("/mksoul-pro.com/showroom/file/sr-event-archive.csv", csv_bytes)
@@ -154,6 +154,14 @@ def update_archive_file():
     ftp_upload("/mksoul-pro.com/showroom/file/sr-event-archive-log.txt", log_text.encode("utf-8"))
 
     st.success(f"✅ バックアップ更新完了: {added_count}件追加（合計 {after_count}件）")
+
+    # ✅ 更新完了後にダウンロードボタン追加
+    st.download_button(
+        label="📥 更新後のバックアップCSVをダウンロード",
+        data=csv_bytes,
+        file_name=f"sr-event-archive_{datetime.now(JST).strftime('%Y%m%d_%H%M%S')}.csv",
+        mime="text/csv"
+    )
 
 
 if "authenticated" not in st.session_state:  #認証用
