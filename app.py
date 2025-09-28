@@ -543,7 +543,7 @@ def main():
             st.sidebar.header("特別機能")
 
             # --- 🔄 バックアップ更新ボタン ---
-            if st.sidebar.button("バックアップ更新（自動取得・重複除外・上書き）"):
+            if st.sidebar.button("バックアップ更新"):
                 try:
                     update_archive_file()
                 except Exception as e:
