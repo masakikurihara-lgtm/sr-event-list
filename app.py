@@ -93,7 +93,7 @@ def update_archive_file():
     JST = pytz.timezone('Asia/Tokyo')
     now_str = datetime.now(JST).strftime("%Y/%m/%d %H:%M:%S")
 
-    st.info("📡 SHOWROOM APIから全イベント情報を取得中...")
+    st.info("📡 イベントデータを取得中...")
     statuses = [1, 3, 4]
     new_events = get_events(statuses)
 
