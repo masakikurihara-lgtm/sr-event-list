@@ -462,27 +462,28 @@ def main():
     if use_past_bu:
         with st.spinner("過去のイベントデータを取得・処理中..."):
             past_events = get_past_events_from_files()
-            # --- BU取得分の「生」件数を保持（変更） ---
             past_count_raw = len(past_events)
 
-            # ✅ 「終了(BU)」からAPIの「終了」イベントを除外（重複完全排除）
-            api_finished_ids = set()
-            if use_finished:
-                # APIから取得済みのイベントのうち、ステータス=4 のものだけを対象にする
-                api_finished_ids = {
-                    normalize_event_id_val(e.get("event_id"))
-                    for e in fetched_events
-                    if e.get("event_id") and str(e.get("status")) == "4"
-                }
+            # ✅ APIで取得した「終了」イベント（status=4）の event_id 一覧を作成
+            api_finished_events = []
+            try:
+                api_finished_events = get_events([4])  # 明示的に終了ステータスだけ再取得
+            except Exception as ex:
+                st.warning(f"終了イベント情報の取得中にエラーが発生しました: {ex}")
 
+            api_finished_ids = {
+                normalize_event_id_val(e.get("event_id"))
+                for e in api_finished_events
+                if e.get("event_id")
+            }
+
+            # ✅ 「終了(BU)」からAPIの「終了」イベントを除外（重複完全排除）
             filtered_past_events = []
             for e in past_events:
                 eid = normalize_event_id_val(e.get("event_id"))
-                # APIに存在しない過去イベントのみ保持
                 if eid and eid not in api_finished_ids:
                     filtered_past_events.append(e)
 
-            # 除外前後の件数差をログ表示
             removed_count = len(past_events) - len(filtered_past_events)
             if removed_count > 0:
                 st.info(f"🧹 「終了(BU)」から {removed_count} 件の重複イベントを除外しました。")
