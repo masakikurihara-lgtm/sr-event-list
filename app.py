@@ -458,14 +458,39 @@ def main():
                 # フェッチ元（API）を優先して格納（上書き可）
                 unique_events_dict[eid] = event
     
-    # 「終了(BU)」のデータ取得
+    # --- 「終了(BU)」のデータ取得 ---
     if use_past_bu:
         with st.spinner("過去のイベントデータを取得・処理中..."):
             past_events = get_past_events_from_files()
             # --- BU取得分の「生」件数を保持（変更） ---
             past_count_raw = len(past_events)
+
+            # ✅ 「終了(BU)」からAPIの「終了」イベントを除外（重複完全排除）
+            api_finished_ids = set()
+            if use_finished:
+                # APIから取得済みのイベントのうち、ステータス=4 のものだけを対象にする
+                api_finished_ids = {
+                    normalize_event_id_val(e.get("event_id"))
+                    for e in fetched_events
+                    if e.get("event_id") and str(e.get("status")) == "4"
+                }
+
+            filtered_past_events = []
+            for e in past_events:
+                eid = normalize_event_id_val(e.get("event_id"))
+                # APIに存在しない過去イベントのみ保持
+                if eid and eid not in api_finished_ids:
+                    filtered_past_events.append(e)
+
+            # 除外前後の件数差をログ表示
+            removed_count = len(past_events) - len(filtered_past_events)
+            if removed_count > 0:
+                st.info(f"🧹 「終了(BU)」から {removed_count} 件の重複イベントを除外しました。")
+
+            past_events = filtered_past_events
+
+            # --- 正規化＆辞書格納 ---
             for event in past_events:
-                # --- 変更: event_id を正規化して一致判定する（既に存在するIDは追加しない） ---
                 eid = normalize_event_id_val(event.get('event_id'))
                 if eid is None:
                     continue
@@ -473,25 +498,6 @@ def main():
                 # 既に API から取得されたイベントが存在する場合は上書きしない（API 側を優先）
                 if eid not in unique_events_dict:
                     unique_events_dict[eid] = event
-
-    # ✅ 「終了」と「終了(BU)」に重複がある場合、「終了(BU)」側を除外
-    if use_finished and use_past_bu:
-        api_event_ids = set(
-            normalize_event_id_val(e.get("event_id"))
-            for e in fetched_events if e.get("event_id") is not None
-        )
-        before_bu_count = len(unique_events_dict)
-
-        # 「終了(BU)」として取得されたイベントで、API側にも同じIDがあるものを除外
-        unique_events_dict = {
-            eid: ev for eid, ev in unique_events_dict.items()
-            if not (eid in api_event_ids and ev in past_events)
-        }
-
-        after_bu_count = len(unique_events_dict)
-        removed_bu_count = before_bu_count - after_bu_count
-        if removed_bu_count > 0:
-            st.info(f"🧹 重複イベント {removed_bu_count} 件を「終了(BU)」から除外しました。")
 
 
     # 辞書の値をリストに変換して、フィルタリング処理に進む
