@@ -474,6 +474,26 @@ def main():
                 if eid not in unique_events_dict:
                     unique_events_dict[eid] = event
 
+    # ✅ 「終了」と「終了(BU)」に重複がある場合、「終了(BU)」側を除外
+    if use_finished and use_past_bu:
+        api_event_ids = set(
+            normalize_event_id_val(e.get("event_id"))
+            for e in fetched_events if e.get("event_id") is not None
+        )
+        before_bu_count = len(unique_events_dict)
+
+        # 「終了(BU)」として取得されたイベントで、API側にも同じIDがあるものを除外
+        unique_events_dict = {
+            eid: ev for eid, ev in unique_events_dict.items()
+            if not (eid in api_event_ids and ev in past_events)
+        }
+
+        after_bu_count = len(unique_events_dict)
+        removed_bu_count = before_bu_count - after_bu_count
+        if removed_bu_count > 0:
+            st.info(f"🧹 重複イベント {removed_bu_count} 件を「終了(BU)」から除外しました。")
+
+
     # 辞書の値をリストに変換して、フィルタリング処理に進む
     all_events = list(unique_events_dict.values())
     original_event_count = len(all_events)
