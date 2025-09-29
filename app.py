@@ -361,7 +361,7 @@ def main():
         # 認証ボタン
         if st.button("認証する"):
             if input_room_id:  # 入力が空でない場合のみ
-                if input_room_id.strip() == "mksp":
+                if input_room_id.strip() == "mksp154851":
                     st.session_state.authenticated = True
                     st.session_state.mksp_authenticated = True
                     st.success("✅ 特別な認証に成功しました。ツールを利用できます。")
