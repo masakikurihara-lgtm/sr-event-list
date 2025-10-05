@@ -1142,7 +1142,8 @@ def main():
                                     html_table += "</tbody></table>"
 
                                     with st.expander("参加ルーム一覧（最大10ルーム）", expanded=True):
-                                        st.markdown(html_table, unsafe_allow_html=True)
+                                        # テーブルをdivで囲み、横スクロールを可能にするスタイルを追加
+                                        st.markdown(f"<div style='overflow-x: auto;'>{html_table}</div>", unsafe_allow_html=True)
                                 #else:
                                 #    st.info("参加ルーム情報が取得できませんでした。")
                             except Exception as e:
