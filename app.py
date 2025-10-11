@@ -1325,19 +1325,29 @@ def main():
                             except Exception as e:
                                 st.error(f"参加ルーム情報の取得中にエラーが発生しました: {e}")
                 # -------------------------------
-                # ② ランキングボタンは常に別判定（終了イベントも対象）
+                # ② ランキングボタンは常に別判定（終了イベントも対象）【終了(BU)対応版】
                 # -------------------------------
                 try:
-                    # BUイベント群のevent_idリストを取得（最初に一度だけ作る）
+                    # BUイベント群の event_id リストを整数・文字列両対応で作成
                     if "past_event_ids" not in st.session_state:
-                        st.session_state.past_event_ids = {
-                            e.get("event_id") for e in past_events if e.get("event_id")
-                        }
+                        st.session_state.past_event_ids = set()
+                        for e in past_events:
+                            eid = e.get("event_id")
+                            if eid is not None:
+                                # 両方の型で登録しておく（文字列・整数）
+                                st.session_state.past_event_ids.add(str(eid))
+                                try:
+                                    st.session_state.past_event_ids.add(str(int(eid)))
+                                except Exception:
+                                    pass
                     past_event_ids = st.session_state.past_event_ids
                 except Exception:
                     past_event_ids = set()
 
-                if (fetched_status in (1, 4)) or (use_past_bu and event.get("event_id") in past_event_ids):
+                # 🔹 条件の判定を型違いに強くする
+                eid_str = str(event.get("event_id"))
+
+                if (fetched_status in (1, 4)) or (use_past_bu and eid_str in past_event_ids):
                     btn_rank_key = f"show_ranking_{event.get('event_id')}"
                     if st.button("ランキングを表示", key=btn_rank_key):
                         with st.spinner("ランキング情報を取得中..."):
