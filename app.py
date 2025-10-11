@@ -1223,7 +1223,7 @@ def main():
                     unsafe_allow_html=True
                 )
 
-                # --- ▼ ここから追加: 終了日時に基づいてボタン表示制御 ▼ ---
+                # --- ▼ ここから追加: 終了日時に基づいてボタン表示制御（修正版） ▼ ---
                 try:
                     now_ts = int(datetime.now(JST).timestamp())
                     ended_ts = int(float(event.get("ended_at", 0)))
@@ -1234,21 +1234,25 @@ def main():
                     ended_ts = 0
                     now_ts = 0
 
-                # 現在時刻より終了時刻が未来なら「開催中 or 開催予定」
+                # fetched_statusを安全に取得
+                try:
+                    fetched_status = int(float(event.get("_fetched_status", 0)))
+                except Exception:
+                    fetched_status = None
+
+                # -------------------------------
+                # ① 開催中 or 開催予定 → 参加ルームボタンを表示
+                # -------------------------------
                 if now_ts < ended_ts:
                     btn_key = f"show_participants_{event.get('event_id')}"
                     if st.button("参加ルーム情報を表示", key=btn_key):
                         with st.spinner("参加ルーム情報を取得中..."):
                             try:
                                 participants = get_event_participants(event, limit=10)
-
-                                # --- ▼ 参加ルーム数 0 の場合 ---
                                 if not participants:
                                     st.info("参加ルームがありません。")
                                 else:
-                                    # --- ▼ 正常に取得できた場合のみ DataFrame に整形して表示 ---
                                     import pandas as _pd
-
                                     rank_order = [
                                         "SS-5","SS-4","SS-3","SS-2","SS-1",
                                         "S-5","S-4","S-3","S-2","S-1",
@@ -1257,9 +1261,7 @@ def main():
                                         "C-10","C-9","C-8","C-7","C-6","C-5","C-4","C-3","C-2","C-1"
                                     ]
                                     rank_score = {rank: i for i, rank in enumerate(rank_order[::-1])}
-
                                     dfp = _pd.DataFrame(participants)
-
                                     cols = [
                                         'room_name', 'room_level', 'show_rank_subdivided',
                                         'follower_num', 'live_continuous_days', 'room_id', 'rank', 'point'
@@ -1267,14 +1269,12 @@ def main():
                                     for c in cols:
                                         if c not in dfp.columns:
                                             dfp[c] = ""
-
                                     dfp['_rank_score'] = dfp['show_rank_subdivided'].map(rank_score).fillna(-1)
                                     dfp.sort_values(
                                         by=['_rank_score', 'room_level', 'follower_num'],
                                         ascending=[False, False, False],
                                         inplace=True
                                     )
-
                                     dfp_display = dfp[cols].copy()
                                     dfp_display.rename(columns={
                                         'room_name': 'ルーム名',
@@ -1293,34 +1293,26 @@ def main():
                                         return f'<a href="https://www.showroom-live.com/room/profile?room_id={rid}" target="_blank">{name}</a>'
                                     dfp_display['ルーム名'] = dfp_display.apply(_make_link, axis=1)
 
-                                    # --- ▼ 数値フォーマット関数（ポイントのみカンマ区切り） ▼ ---
+                                    # 数値フォーマット関数
                                     def _fmt_int_for_display(v, comma=True):
                                         try:
                                             if v is None or (isinstance(v, str) and v.strip() == ""):
                                                 return ""
                                             num = float(v)
-                                            # カンマ付き or なしの切り替え
                                             return f"{int(num):,}" if comma else f"{int(num)}"
                                         except Exception:
                                             return str(v)
-
-                                    # --- ▼ 数値列を個別処理（列名を確認して確実に適用） ▼ ---
                                     if 'ポイント' in dfp_display.columns:
                                         dfp_display['ポイント'] = dfp_display['ポイント'].apply(lambda x: _fmt_int_for_display(x, comma=True))
-
                                     for col in ['ルームレベル', 'フォロワー数', 'まいにち配信', '順位']:
                                         if col in dfp_display.columns:
                                             dfp_display[col] = dfp_display[col].apply(lambda x: _fmt_int_for_display(x, comma=False))
 
                                     html_table = "<table style='width:100%; border-collapse:collapse;'>"
-                                    html_table += (
-                                        "<thead style='background-color:#f3f4f6;'>"
-                                        "<tr>"
-                                    )
+                                    html_table += "<thead style='background-color:#f3f4f6;'><tr>"
                                     for col in dfp_display.columns:
                                         html_table += f"<th style='padding:6px; border-bottom:1px solid #ccc; text-align:center;'>{col}</th>"
                                     html_table += "</tr></thead><tbody>"
-
                                     for _, row in dfp_display.iterrows():
                                         html_table += "<tr>"
                                         for val in row:
@@ -1329,25 +1321,28 @@ def main():
                                     html_table += "</tbody></table>"
 
                                     with st.expander("参加ルーム一覧（最大10ルーム）", expanded=True):
-                                        # テーブルをdivで囲み、横スクロールを可能にするスタイルを追加
                                         st.markdown(f"<div style='overflow-x: auto;'>{html_table}</div>", unsafe_allow_html=True)
-                                #else:
-                                #    st.info("参加ルーム情報が取得できませんでした。")
                             except Exception as e:
                                 st.error(f"参加ルーム情報の取得中にエラーが発生しました: {e}")
-                    # ▼▼ ここから追記 ▼▼
-                    try:
-                        fetched_status = int(float(event.get("_fetched_status", 0)))
-                    except Exception:
-                        fetched_status = None
+                # -------------------------------
+                # ② ランキングボタンは常に別判定（終了イベントも対象）
+                # -------------------------------
+                try:
+                    # BUイベント群のevent_idリストを取得（最初に一度だけ作る）
+                    if "past_event_ids" not in st.session_state:
+                        st.session_state.past_event_ids = {
+                            e.get("event_id") for e in past_events if e.get("event_id")
+                        }
+                    past_event_ids = st.session_state.past_event_ids
+                except Exception:
+                    past_event_ids = set()
 
-                    # 開催中・終了・終了(BU) のいずれかならボタンを出す
-                    if (fetched_status in (1, 4)) or (use_past_bu and event in past_events):
-                        btn_rank_key = f"show_ranking_{event.get('event_id')}"
-                        if st.button("ランキングを表示", key=btn_rank_key):
-                            with st.spinner("ランキング情報を取得中..."):
-                                display_ranking_table(event.get('event_id'))
-                    # ▲▲ ここまで追記 ▲▲
+                if (fetched_status in (1, 4)) or (use_past_bu and event.get("event_id") in past_event_ids):
+                    btn_rank_key = f"show_ranking_{event.get('event_id')}"
+                    if st.button("ランキングを表示", key=btn_rank_key):
+                        with st.spinner("ランキング情報を取得中..."):
+                            display_ranking_table(event.get('event_id'))
+                # --- ▲ ここまで修正版 ▲ ---
                 else:
                     # 終了済みイベントは非表示 or 非活性メッセージを表示
                     #st.markdown('<div class="event-info"><em>（イベント終了済のため参加ルーム情報は非表示）</em></div>', unsafe_allow_html=True)
