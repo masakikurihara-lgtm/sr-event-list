@@ -1357,7 +1357,7 @@ def main():
                 # ② 「終了(BU)」ON時、かつ過去イベントリストに該当IDがある場合
                 cond_is_target = (
                     (fetched_status in (1, 4)) or
-                    (use_past_bu and eid_str in past_event_ids)
+                    (use_past_bu)
                 )
 
                 if cond_is_target:
