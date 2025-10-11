@@ -611,6 +611,106 @@ def get_duration_category(start_ts, end_ts):
         return "その他"
 
 
+# ==============================================================
+# 🔽 ランキング取得・表示機能の追加 🔽
+# ==============================================================
+
+@st.cache_data(ttl=120)
+def get_event_ranking(event_id, limit=10):
+    """
+    イベントIDを指定してランキング上位ルーム情報を取得。
+    レベル型イベントの場合は rank が存在しないため、順位は "-" とし、ポイント順に並べる。
+    """
+    all_rooms = []
+    base_url = "https://www.showroom-live.com/api/event/room_list"
+    try:
+        for page in range(1, 4):
+            res = requests.get(f"{base_url}?event_id={event_id}&p={page}", timeout=10)
+            res.raise_for_status()
+            data = res.json()
+            rooms = data.get("list") or data.get("room_list") or []
+            if not rooms:
+                break
+            all_rooms.extend(rooms)
+            if len(rooms) < 30:
+                break
+        if not all_rooms:
+            return []
+
+        is_rank_type = any("rank" in r for r in all_rooms)
+
+        for r in all_rooms:
+            r["room_name"] = r.get("room_name") or ""
+            r["room_id"] = r.get("room_id") or ""
+            r["rank"] = r.get("rank") if is_rank_type else "-"
+            r["point"] = int(r.get("point", 0) or 0)
+            r["quest_level"] = r.get("quest_level", "")
+
+        if is_rank_type:
+            all_rooms = [r for r in all_rooms if isinstance(r.get("point"), int)]
+            all_rooms.sort(key=lambda x: x.get("rank") if isinstance(x.get("rank"), int) else 999999)
+        else:
+            all_rooms.sort(key=lambda x: x.get("point", 0), reverse=True)
+
+        for i, r in enumerate(all_rooms):
+            if i == 0:
+                r["point_diff"] = "-"
+            else:
+                prev = all_rooms[i - 1]
+                r["point_diff"] = prev["point"] - r["point"]
+
+        return all_rooms[:limit]
+
+    except Exception as e:
+        st.warning(f"ランキング取得中にエラーが発生しました: {e}")
+        return []
+
+
+def display_ranking_table(event_id):
+    """ランキング情報を取得し、HTMLテーブルで表示"""
+    ranking = get_event_ranking(event_id)
+    if not ranking:
+        st.info("ランキング情報が取得できませんでした。")
+        return
+
+    import pandas as pd
+    df = pd.DataFrame(ranking)
+    df_display = df[["room_name", "rank", "point", "point_diff", "quest_level", "room_id"]].copy()
+    df_display.rename(columns={
+        "room_name": "ルーム名",
+        "rank": "順位",
+        "point": "ポイント",
+        "point_diff": "上位との差",
+        "quest_level": "レベル",
+    }, inplace=True)
+
+    def make_link(row):
+        rid = row["room_id"]
+        name = row["ルーム名"] or f"room_{rid}"
+        return f'<a href="https://www.showroom-live.com/room/profile?room_id={rid}" target="_blank">{name}</a>'
+
+    df_display["ルーム名"] = df_display.apply(make_link, axis=1)
+
+    for col in ["ポイント", "上位との差"]:
+        df_display[col] = df_display[col].apply(lambda x: f"{x:,}" if isinstance(x, int) else x)
+
+    html_table = "<div style='overflow-x:auto;'><table style='width:100%; border-collapse:collapse;'>"
+    html_table += "<thead><tr style='background-color:#f3f4f6;'>"
+    for col in df_display.columns[:-1]:
+        html_table += f"<th style='padding:6px; border-bottom:1px solid #ccc; text-align:center;'>{col}</th>"
+    html_table += "</tr></thead><tbody>"
+
+    for _, row in df_display.iterrows():
+        html_table += "<tr>"
+        for col in df_display.columns[:-1]:
+            html_table += f"<td style='padding:6px; border-bottom:1px solid #eee; text-align:center;'>{row[col]}</td>"
+        html_table += "</tr>"
+    html_table += "</tbody></table></div>"
+
+    with st.expander("ランキング上位（最大10ルーム）", expanded=True):
+        st.markdown(html_table, unsafe_allow_html=True)
+
+
 # --- メイン処理 ---
 def main():
     # ページ設定
@@ -1148,6 +1248,13 @@ def main():
                                 #    st.info("参加ルーム情報が取得できませんでした。")
                             except Exception as e:
                                 st.error(f"参加ルーム情報の取得中にエラーが発生しました: {e}")
+                    # ▼▼ ここから追記 ▼▼
+                    if fetched_status in (1, 4) or (use_past_bu and event in past_events):
+                        btn_rank_key = f"show_ranking_{event.get('event_id')}"
+                        if st.button("ランキングを表示", key=btn_rank_key):
+                            with st.spinner("ランキング情報を取得中..."):
+                                display_ranking_table(event.get('event_id'))
+                    # ▲▲ ここまで追記 ▲▲
                 else:
                     # 終了済みイベントは非表示 or 非活性メッセージを表示
                     #st.markdown('<div class="event-info"><em>（イベント終了済のため参加ルーム情報は非表示）</em></div>', unsafe_allow_html=True)
