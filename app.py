@@ -1249,7 +1249,13 @@ def main():
                             except Exception as e:
                                 st.error(f"参加ルーム情報の取得中にエラーが発生しました: {e}")
                     # ▼▼ ここから追記 ▼▼
-                    if fetched_status in (1, 4) or (use_past_bu and event in past_events):
+                    try:
+                        fetched_status = int(float(event.get("_fetched_status", 0)))
+                    except Exception:
+                        fetched_status = None
+
+                    # 開催中・終了・終了(BU) のいずれかならボタンを出す
+                    if (fetched_status in (1, 4)) or (use_past_bu and event in past_events):
                         btn_rank_key = f"show_ranking_{event.get('event_id')}"
                         if st.button("ランキングを表示", key=btn_rank_key):
                             with st.spinner("ランキング情報を取得中..."):
