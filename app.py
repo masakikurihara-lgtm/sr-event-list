@@ -618,48 +618,135 @@ def get_duration_category(start_ts, end_ts):
 @st.cache_data(ttl=120)
 def get_event_ranking(event_id, limit=10):
     """
-    イベントIDを指定してランキング上位ルーム情報を取得。
-    レベル型イベントの場合は rank が存在しないため、順位は "-" とし、ポイント順に並べる。
+    修正版:
+    - APIの各レコードから event_entry.quest_level を拾って quest_level としてセット
+    - 同一 room_id が複数ある場合は point が最大のものを残す（重複排除）
+    - ランク型は rank を優先、それ以外（レベル型）は point 降順でソート
+    - 上位との差（point_diff）を算出して返す（最大 limit 件）
     """
     all_rooms = []
     base_url = "https://www.showroom-live.com/api/event/room_list"
     try:
-        for page in range(1, 4):
+        # 複数ページ取得（安全上限）
+        for page in range(1, 6):  # 必要ならページ数を調整
             res = requests.get(f"{base_url}?event_id={event_id}&p={page}", timeout=10)
-            res.raise_for_status()
+            if res.status_code != 200:
+                break
             data = res.json()
             rooms = data.get("list") or data.get("room_list") or []
             if not rooms:
                 break
             all_rooms.extend(rooms)
+            # もしページが少なければ早期抜け
             if len(rooms) < 30:
                 break
+
         if not all_rooms:
             return []
 
-        is_rank_type = any("rank" in r for r in all_rooms)
-
+        # --- 各レコードから安全にフィールド抽出 ---
+        normalized = []
         for r in all_rooms:
-            r["room_name"] = r.get("room_name") or ""
-            r["room_id"] = r.get("room_id") or ""
-            r["rank"] = r.get("rank") if is_rank_type else "-"
-            r["point"] = int(r.get("point", 0) or 0)
-            r["quest_level"] = r.get("quest_level", "")
+            rid = str(r.get("room_id") or r.get("roomId") or "")
+            # event_entry に quest_level が含まれる場合を優先して取得
+            quest_level = None
+            ev = r.get("event_entry") or r.get("eventEntry") or {}
+            if isinstance(ev, dict):
+                quest_level = ev.get("quest_level") or ev.get("questLevel") or ev.get("level")
+                try:
+                    if quest_level is not None:
+                        quest_level = int(quest_level)
+                except Exception:
+                    pass
+            # point は複数キーがありうる
+            raw_point = r.get("point") or r.get("event_point") or r.get("total_point") or 0
+            try:
+                point_val = int(raw_point)
+            except Exception:
+                # 数値でなければ0
+                try:
+                    point_val = int(float(raw_point))
+                except Exception:
+                    point_val = 0
+            # rank が存在すればとる（数値化できれば数値で）
+            raw_rank = r.get("rank") or r.get("position")
+            try:
+                rank_val = int(raw_rank) if raw_rank is not None and str(raw_rank).isdigit() else raw_rank
+            except Exception:
+                rank_val = raw_rank
 
-        if is_rank_type:
-            all_rooms = [r for r in all_rooms if isinstance(r.get("point"), int)]
-            all_rooms.sort(key=lambda x: x.get("rank") if isinstance(x.get("rank"), int) else 999999)
-        else:
-            all_rooms.sort(key=lambda x: x.get("point", 0), reverse=True)
+            normalized.append({
+                "room_id": rid,
+                "room_name": r.get("room_name") or r.get("performer_name") or "",
+                "rank": rank_val if rank_val is not None else "-",
+                "point": point_val,
+                "quest_level": quest_level if quest_level is not None else "",
+                # preserve original record for possible debug
+                "_raw": r
+            })
 
-        for i, r in enumerate(all_rooms):
-            if i == 0:
-                r["point_diff"] = "-"
+        if not normalized:
+            return []
+
+        # --- 重複排除: room_id ごとに point が最大のレコードを残す ---
+        best_by_room = {}
+        for rec in normalized:
+            rid = rec["room_id"]
+            if rid == "" or rid is None:
+                # 空IDのものは単純にスキップ
+                continue
+            prev = best_by_room.get(rid)
+            if prev is None:
+                best_by_room[rid] = rec
             else:
-                prev = all_rooms[i - 1]
-                r["point_diff"] = prev["point"] - r["point"]
+                # point が大きい方を保持。等しいなら既存を保持（安定）
+                if rec["point"] > prev["point"]:
+                    best_by_room[rid] = rec
 
-        return all_rooms[:limit]
+        deduped = list(best_by_room.values())
+
+        # --- 判定: ランク型か否か（少なくとも1件に数値rankがあればランク型と判断） ---
+        is_rank_type = any(isinstance(x.get("rank"), int) for x in deduped)
+
+        # --- ソート ---
+        if is_rank_type:
+            # rankが数値なら昇順（1位が先）に。rankが '-' の場合は末尾へ
+            def rank_sort_key(x):
+                r = x.get("rank")
+                if isinstance(r, int):
+                    return (0, r)  # 数値は先頭（小さいほど良い）
+                try:
+                    # 文字列の数値を試す
+                    if str(r).isdigit():
+                        return (0, int(str(r)))
+                except Exception:
+                    pass
+                return (1, 999999)
+            deduped.sort(key=rank_sort_key)
+        else:
+            # レベル型：ポイント降順
+            deduped.sort(key=lambda x: x.get("point", 0), reverse=True)
+
+        # --- 上位との差を計算 ---
+        for i, rec in enumerate(deduped):
+            if i == 0:
+                rec["point_diff"] = "-"
+            else:
+                rec["point_diff"] = deduped[i - 1]["point"] - rec["point"]
+
+        # --- 最後に表示用サイズに整形して返す ---
+        result = []
+        for rec in deduped[:limit]:
+            result.append({
+                "room_id": rec["room_id"],
+                "room_name": rec["room_name"],
+                "rank": rec["rank"],
+                "point": rec["point"],
+                "point_diff": rec["point_diff"],
+                "quest_level": rec["quest_level"],
+            })
+
+        return result
 
     except Exception as e:
         st.warning(f"ランキング取得中にエラーが発生しました: {e}")
