@@ -759,10 +759,28 @@ def display_ranking_table(event_id):
     if not ranking:
         st.info("ランキング情報が取得できませんでした。")
         return
-        
-    st.caption(f"（取得時刻: {datetime.now(JST).strftime('%Y/%m/%d %H:%M:%S')} 現在）")    
 
-    import pandas as pd
+    st.caption(f"（取得時刻: {datetime.now(JST).strftime('%Y/%m/%d %H:%M:%S')} 現在）")
+
+    import pandas as pd, requests, re
+
+    # --- ▼ event_url_key を取得 ---
+    try:
+        url = f"https://www.showroom-live.com/api/event/contribution_ranking?event_id={event_id}&room_id={ranking[0]['room_id']}"
+        res = requests.get(url, timeout=10)
+        res.raise_for_status()
+        data = res.json()
+        event_url = data.get("event", {}).get("event_url", "")
+        event_url_key = ""
+        if event_url:
+            m = re.search(r"/event/([^/?#]+)", event_url)
+            if m:
+                event_url_key = m.group(1)
+    except Exception as e:
+        st.warning(f"イベントURLキーの取得に失敗しました: {e}")
+        event_url_key = ""
+
+    # --- ▼ DataFrame作成 ---
     df = pd.DataFrame(ranking)
     df_display = df[["room_name", "rank", "point", "point_diff", "quest_level", "room_id"]].copy()
     df_display.rename(columns={
@@ -773,25 +791,60 @@ def display_ranking_table(event_id):
         "quest_level": "レベル",
     }, inplace=True)
 
-    def make_link(row):
+    # --- ▼ 貢献ランク列を追加 ---
+    def make_contrib_link(rid):
+        if not event_url_key or not rid:
+            return "-"
+        contrib_url = f"https://www.showroom-live.com/event/contribution/{event_url_key}?room_id={rid}"
+        return f'<a href="{contrib_url}" target="_blank" class="rank-btn-link">貢献ランク</a>'
+
+    df_display["貢献ランク"] = df_display["room_id"].apply(make_contrib_link)
+
+    # --- ▼ HTMLスタイル定義 ---
+    style_html = """
+    <style>
+    .rank-btn-link {
+        background:#0b57d0;
+        color:white !important;
+        border:none;
+        padding:4px 8px;
+        border-radius:4px;
+        cursor:pointer;
+        text-decoration:none;
+        display:inline-block;
+        font-size:12px;
+    }
+    .rank-btn-link:hover {
+        background:#0949a8;
+    }
+    </style>
+    """
+
+    # --- ▼ ルーム名リンク化 ---
+    def make_room_link(row):
         rid = row["room_id"]
         name = row["ルーム名"] or f"room_{rid}"
         return f'<a href="https://www.showroom-live.com/room/profile?room_id={rid}" target="_blank">{name}</a>'
+    df_display["ルーム名"] = df_display.apply(make_room_link, axis=1)
 
-    df_display["ルーム名"] = df_display.apply(make_link, axis=1)
-
+    # --- ▼ 数値フォーマット ---
     for col in ["ポイント", "上位との差"]:
-        df_display[col] = df_display[col].apply(lambda x: f"{x:,}" if isinstance(x, int) else x)
+        df_display[col] = df_display[col].apply(lambda x: f"{x:,}" if isinstance(x, (int, float)) else x)
 
-    html_table = "<div style='overflow-x:auto;'><table style='width:100%; border-collapse:collapse;'>"
+    # --- ▼ 表示列の順序を明確化（room_idは非表示） ---
+    display_cols = ["ルーム名", "順位", "ポイント", "上位との差", "レベル", "貢献ランク"]
+
+    # --- ▼ HTMLテーブル生成 ---
+    html_table = style_html
+    html_table += "<div style='overflow-x:auto;'><table style='width:100%; border-collapse:collapse;'>"
     html_table += "<thead><tr style='background-color:#f3f4f6;'>"
-    for col in df_display.columns[:-1]:
+    for col in display_cols:
         html_table += f"<th style='padding:6px; border-bottom:1px solid #ccc; text-align:center;'>{col}</th>"
     html_table += "</tr></thead><tbody>"
 
     for _, row in df_display.iterrows():
         html_table += "<tr>"
-        for col in df_display.columns[:-1]:
+        for col in display_cols:
             html_table += f"<td style='padding:6px; border-bottom:1px solid #eee; text-align:center;'>{row[col]}</td>"
         html_table += "</tr>"
     html_table += "</tbody></table></div>"
