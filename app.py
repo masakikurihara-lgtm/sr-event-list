@@ -527,6 +527,7 @@ def display_event_info(event):
         if show_participants_button:
             btn_key = f"show_participants_{event.get('event_id')}"
             if st.button("参加ルーム情報を表示", key=btn_key):
+                st.caption(f"（取得時刻: {datetime.now(JST).strftime('%Y/%m/%d %H:%M:%S')} 現在）")   
                 with st.spinner("参加ルーム情報を取得中..."):
                     try:
                         participants = get_event_participants(event, limit=10)
@@ -585,7 +586,7 @@ def display_event_info(event):
                             with st.expander("参加ルーム一覧（最大10ルーム）", expanded=True):
                                 st.write(dfp_display.to_html(escape=False, index=False), unsafe_allow_html=True)
                         else:
-                            st.info("参加ルーム情報が取得できませんでした（イベント側データが空か、データの取得に失敗しました）。")
+                            st.info("参加ルーム情報が取得できませんでした（イベント側データが空か、データの取得に失敗しました）。") 
                     except Exception as e:
                         st.error(f"参加ルーム情報の取得中にエラーが発生しました: {e}")
         # --- ▲ 判定ここまで ▲ ---
