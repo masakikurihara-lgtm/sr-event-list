@@ -833,6 +833,7 @@ def display_ranking_table(event_id):
         st.markdown(html_table, unsafe_allow_html=True)
 
 
+
 # --- メイン処理 ---
 def main():
     # ページ設定
