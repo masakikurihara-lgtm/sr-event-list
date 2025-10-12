@@ -527,7 +527,6 @@ def display_event_info(event):
         if show_participants_button:
             btn_key = f"show_participants_{event.get('event_id')}"
             if st.button("参加ルーム情報を表示", key=btn_key):
-                st.caption(f"（取得時刻: {datetime.now(JST).strftime('%Y/%m/%d %H:%M:%S')} 現在）")   
                 with st.spinner("参加ルーム情報を取得中..."):
                     try:
                         participants = get_event_participants(event, limit=10)
