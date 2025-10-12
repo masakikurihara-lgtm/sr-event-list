@@ -615,7 +615,7 @@ def get_duration_category(start_ts, end_ts):
 # 🔽 ランキング取得・表示機能の追加 🔽
 # ==============================================================
 
-@st.cache_data(ttl=120)
+#@st.cache_data(ttl=120)
 def get_event_ranking(event_id, limit=10):
     """
     修正版:
@@ -759,6 +759,8 @@ def display_ranking_table(event_id):
     if not ranking:
         st.info("ランキング情報が取得できませんでした。")
         return
+        
+    st.caption(f"（取得時刻: {datetime.now(JST).strftime('%Y/%m/%d %H:%M:%S')} 現在）")    
 
     import pandas as pd
     df = pd.DataFrame(ranking)
