@@ -773,34 +773,6 @@ def display_ranking_table(event_id):
         "quest_level": "レベル",
     }, inplace=True)
 
-    # --- ▼ ここから追加: 貢献ランク列を追加 ▼ ---
-    df_display["貢献ランク"] = df_display["room_id"].apply(
-        lambda rid: f'<a href="https://www.showroom-live.com/api/event/contribution_ranking?event_id={event_id}&room_id={rid}" '
-                    f'target="_blank" class="rank-btn-link">貢献ランク</a>'
-                    if rid else "-"
-    )
-    # --- ▲ ここまで追加 ▲ ---
-
-    # --- ▼ スタイル定義をHTMLに埋め込む（ボタン見た目） ▼ ---
-    style_html = """
-    <style>
-    .rank-btn-link {
-        background:#0b57d0;
-        color:white !important;
-        border:none;
-        padding:4px 8px;
-        border-radius:4px;
-        cursor:pointer;
-        text-decoration:none;
-        display:inline-block;
-        font-size:12px;
-    }
-    .rank-btn-link:hover {
-        background:#0949a8;
-    }
-    </style>
-    """
-
     def make_link(row):
         rid = row["room_id"]
         name = row["ルーム名"] or f"room_{rid}"
@@ -811,27 +783,21 @@ def display_ranking_table(event_id):
     for col in ["ポイント", "上位との差"]:
         df_display[col] = df_display[col].apply(lambda x: f"{x:,}" if isinstance(x, int) else x)
 
-    # --- ▼ HTMLテーブル生成（「貢献ランク」列を含む） ▼ ---
-    html_table = style_html
-    html_table += "<div style='overflow-x:auto;'><table style='width:100%; border-collapse:collapse;'>"
+    html_table = "<div style='overflow-x:auto;'><table style='width:100%; border-collapse:collapse;'>"
     html_table += "<thead><tr style='background-color:#f3f4f6;'>"
     for col in df_display.columns[:-1]:
         html_table += f"<th style='padding:6px; border-bottom:1px solid #ccc; text-align:center;'>{col}</th>"
-    html_table += "<th style='padding:6px; border-bottom:1px solid #ccc; text-align:center;'>貢献ランク</th>"
     html_table += "</tr></thead><tbody>"
 
     for _, row in df_display.iterrows():
         html_table += "<tr>"
         for col in df_display.columns[:-1]:
             html_table += f"<td style='padding:6px; border-bottom:1px solid #eee; text-align:center;'>{row[col]}</td>"
-        # --- ▼ 「貢献ランク」ボタンセル追加 ▼ ---
-        html_table += f"<td style='padding:6px; border-bottom:1px solid #eee; text-align:center;'>{row['貢献ランク']}</td>"
         html_table += "</tr>"
     html_table += "</tbody></table></div>"
 
     with st.expander("ランキング上位（最大10ルーム）", expanded=True):
         st.markdown(html_table, unsafe_allow_html=True)
-
 
 
 # --- メイン処理 ---
