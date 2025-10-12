@@ -845,11 +845,7 @@ def display_ranking_table(event_id):
     for _, row in df_display.iterrows():
         html_table += "<tr>"
         for col in display_cols:
-            html_table += (
-                f"<td style='padding:6px; border-bottom:1px solid #eee; text-align:center;"
-                f"white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px;'>"
-                f"{row[col]}</td>"
-            )
+            html_table += f"<td style='padding:6px; border-bottom:1px solid #eee; text-align:center;'>{row[col]}</td>"
         html_table += "</tr>"
     html_table += "</tbody></table></div>"
 
@@ -1375,11 +1371,7 @@ def main():
                                     for _, row in dfp_display.iterrows():
                                         html_table += "<tr>"
                                         for val in row:
-                                            html_table += (
-                                                f"<td style='padding:6px; border-bottom:1px solid #eee; text-align:center;"
-                                                f"white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px;'>"
-                                                f"{val}</td>"
-                                            )
+                                            html_table += f"<td style='padding:6px; border-bottom:1px solid #eee; text-align:center;'>{val}</td>"
                                         html_table += "</tr>"
                                     html_table += "</tbody></table>"
 
