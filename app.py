@@ -28,6 +28,69 @@ ROOM_LIST_URL = "https://mksoul-pro.com/showroom/file/room_list.csv"
 PAST_EVENT_INDEX_URL = "https://mksoul-pro.com/showroom/file/sr-event-archive-list-index.txt"
 
 
+# ===============================
+# 📱 共通レスポンシブCSS（スマホ／タブレット対応）
+# ===============================
+st.markdown("""
+<style>
+/* ---------- テーブル共通 ---------- */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+/* ---------- ボタンリンク ---------- */
+.rank-btn-link {
+    background: #0b57d0;
+    color: white !important;
+    border: none;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 12px;
+}
+.rank-btn-link:hover {
+    background: #0949a8;
+}
+
+/* ---------- 横スクロール対応 ---------- */
+.table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    width: 100%;
+}
+
+/* ---------- スマホ・タブレット対応 ---------- */
+@media screen and (max-width: 1024px) {
+    table {
+        font-size: 12px !important;
+    }
+    th, td {
+        padding: 6px !important;
+    }
+    .rank-btn-link {
+        padding: 6px 8px !important;
+        font-size: 13px !important;
+    }
+    .table-wrapper {
+        overflow-x: auto !important;
+        display: block !important;
+    }
+    /* 固定幅で横スクロール可能にする */
+    .table-wrapper table {
+        width: 1080px !important;
+    }
+}
+</style>
+""", unsafe_allow_html=True)
+
+
+
 # --- ヘルパー: event_id 正規化関数（変更点） ---
 def normalize_event_id_val(val):
     """
@@ -836,6 +899,7 @@ def display_ranking_table(event_id):
 
     # --- ▼ HTMLテーブル生成 ---
     html_table = style_html
+    html_table += "<div class='table-wrapper'><table>"
     html_table += "<div style='overflow-x:auto;'><table style='width:100%; border-collapse:collapse;'>"
     html_table += "<thead><tr style='background-color:#f3f4f6;'>"
     for col in display_cols:
@@ -1376,7 +1440,8 @@ def main():
                                     html_table += "</tbody></table>"
 
                                     with st.expander("参加ルーム一覧（最大10ルーム）", expanded=True):
-                                        st.markdown(f"<div style='overflow-x: auto;'>{html_table}</div>", unsafe_allow_html=True)
+                                        st.markdown(f"<div class='table-wrapper'>{html_table}</div>", unsafe_allow_html=True)
+                                        #st.markdown(f"<div style='overflow-x: auto;'>{html_table}</div>", unsafe_allow_html=True)
                             except Exception as e:
                                 st.error(f"参加ルーム情報の取得中にエラーが発生しました: {e}")
                 # -------------------------------
