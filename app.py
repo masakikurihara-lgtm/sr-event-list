@@ -899,9 +899,9 @@ def display_ranking_table(event_id):
 
     # --- ▼ HTMLテーブル生成 ---
     html_table = style_html
-    #html_table += "<div class='table-wrapper'><table>"
     html_table += "<div style='overflow-x:auto;'><table style='width:100%; border-collapse:collapse;'>"
     html_table += "<thead><tr style='background-color:#f3f4f6;'>"
+    html_table += "<div class='table-wrapper'><table>"
     for col in display_cols:
         html_table += f"<th style='padding:6px; border-bottom:1px solid #ccc; text-align:center;'>{col}</th>"
     html_table += "</tr></thead><tbody>"
