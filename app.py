@@ -482,8 +482,6 @@ def get_event_participants(event, limit=10):
                     "show_rank_subdivided": profile.get("show_rank_subdivided") or "",
                     "follower_num": int(profile.get("follower_num", 0)),
                     "live_continuous_days": int(profile.get("live_continuous_days", 0)),
-                    # ★★★ 修正箇所: is_official の情報を参加者データに追加 ★★★
-                    "is_official": profile.get("is_official", False),
                 })
             except Exception:
                 continue
@@ -535,6 +533,7 @@ def get_event_participants(event, limit=10):
     return top
 
 
+
 # --- UI表示関数 ---
 
 def display_event_info(event):
@@ -572,6 +571,9 @@ def display_event_info(event):
         st.write(f"**参加ルーム数:** {total_entries}")
 
         # --- ▼ 参加者情報表示の判定（厳密にAPIステータスに基づく） ▼ ---
+        # 判定ルール（簡潔）:
+        # - イベントが API (get_events) で取得された場合、各イベント辞書に '_fetched_status' が付与されている
+        # - その値が 1（開催中） または 3（開催予定）であれば参加者情報表示ボタンを出す
         fetched_status = event.get("_fetched_status", None)
 
         show_participants_button = False
@@ -590,42 +592,21 @@ def display_event_info(event):
             if st.button("参加ルーム情報を表示", key=btn_key):
                 with st.spinner("参加ルーム情報を取得中..."):
                     try:
-                        # get_event_participants.py の修正により、participants には 'is_official' が含まれる前提
                         participants = get_event_participants(event, limit=10)
                         if participants:
                             # DataFrame 化して列名を日本語化して表示（ルーム名はリンク付きで表示）
+                            import pandas as _pd
                             dfp = _pd.DataFrame(participants)
-
-                            # --- ★修正開始：is_officialを「公/フ」に変換する処理をDataFrameに適用 (最も安定した方法) ★ ---
-                            # DataFrame作成後に新しい列を追加
-                            dfp['official_status_jp'] = dfp['is_official'].apply(
-                                lambda x: '公' if x is True else ('フ' if x is False else '-')
-                            )
-                            # is_official列はもう不要なので削除
-                            if 'is_official' in dfp.columns:
-                                dfp = dfp.drop(columns=['is_official'])
-                            # --- ★修正終了 ---
-
-                            # 既存のcolsリストに 'official_status_jp' を追加し、順序を「まいにち配信」の直後に変更
-                            # これは英語キー名での最終的な列順序を定義する
-                            cols_en = [
+                            cols = [
                                 'room_name', 'room_level', 'show_rank_subdivided', 'follower_num',
-                                'live_continuous_days', 'official_status_jp', 'room_id', 'rank', 'point' # ★順序変更
+                                'live_continuous_days', 'room_id', 'rank', 'point'
                             ]
-                            
-                            # 存在しない列の追加（既存ロジックを維持）
-                            for c in cols_en:
+                            for c in cols:
                                 if c not in dfp.columns:
-                                    # データ欠損に備えて初期化
                                     dfp[c] = ""
-                            
-                            # 必要な列を正しい順序で抽出
-                            dfp_display = dfp[cols_en].copy()
-                            
-                            # 既存のrename辞書に 'official_status_jp' の日本語名を追加
-                            column_rename_map = {
+                            dfp_display = dfp[cols].copy()
+                            dfp_display.rename(columns={
                                 'room_name': 'ルーム名',
-                                'official_status_jp': '公/フ',  # ★追加
                                 'room_level': 'ルームレベル',
                                 'show_rank_subdivided': 'SHOWランク',
                                 'follower_num': 'フォロワー数',
@@ -633,64 +614,46 @@ def display_event_info(event):
                                 'room_id': 'ルームID',
                                 'rank': '順位',
                                 'point': 'ポイント'
-                            }
-                            dfp_display.rename(columns=column_rename_map, inplace=True)
-                            
+                            }, inplace=True)
+
                             # --- ▼ 数値フォーマット関数（カンマ区切りを切替可能） ▼ ---
                             def _fmt_int_for_display(v, use_comma=True):
                                 try:
-                                    if v is None or (_pd.isna(v)) or (isinstance(v, str) and v.strip() == ""):
+                                    if v is None or (isinstance(v, str) and v.strip() == ""):
                                         return ""
                                     num = float(v)
                                     # ✅ カンマ区切りあり or なしを切り替え
                                     return f"{int(num):,}" if use_comma else f"{int(num)}"
                                 except Exception:
-                                    # 以前発生した可能性のあるエラーの安全策
                                     return str(v)
 
-                            # --- ▼ 列ごとにフォーマット適用 ▼ ---
-                            
-                            # ポイントのみカンマ区切り
-                            if 'ポイント' in dfp_display.columns:
-                                dfp_display['ポイント'] = dfp_display['ポイント'].apply(lambda x: _fmt_int_for_display(x, use_comma=True))
-                            
-                            # 他の数値列はカンマ区切りなし
-                            for col in ['ルームレベル', 'フォロワー数', 'まいにち配信', '順位']:
-                                if col in dfp_display.columns:
+                            # --- ▼ 列ごとにフォーマット適用（確実に順序反映） ▼ ---
+                            for col in dfp_display.columns:
+                                # ✅ カンマ区切り「あり」列
+                                if col == 'ポイント':
+                                    dfp_display[col] = dfp_display[col].apply(lambda x: _fmt_int_for_display(x, use_comma=True))
+
+                                # ✅ カンマ区切り「なし」列
+                                elif col in ['ルームレベル', 'フォロワー数', 'まいにち配信', '順位']:
                                     dfp_display[col] = dfp_display[col].apply(lambda x: _fmt_int_for_display(x, use_comma=False))
-                            
-                            # ★★★ 全ての列を表示前に強制的に文字列に変換する（データ型問題の排除） ★★★
-                            dfp_display = dfp_display.astype(str)
 
                             # ルーム名をリンクにしてテーブル表示（HTMLテーブルを利用）
                             def _make_link(row):
                                 rid = row['ルームID']
                                 name = row['ルーム名'] or f"room_{rid}"
                                 return f'<a href="https://www.showroom-live.com/room/profile?room_id={rid}" target="_blank">{name}</a>'
-                            
-                            # 文字列に変換した後にリンクを適用し直す
                             dfp_display['ルーム名'] = dfp_display.apply(_make_link, axis=1)
-                            
-                            # ★★★ 最終的な日本語列名の順序を強制的に指定する ★★★
-                            cols_jp_final = [column_rename_map.get(col, col) for col in cols_en]
-                            dfp_display = dfp_display[cols_jp_final]
 
                             # コンパクトに expander 内で表示（領域を占有しない）
                             with st.expander("参加ルーム一覧（最大10ルーム）", expanded=True):
-                                # HTMLテーブルを生成し、横スクロールを保証するDIVでラップ
-                                html_output = f"""
-                                <div style="overflow-x: auto; max-width: 100%;">
-                                    {dfp_display.to_html(escape=False, index=False)}
-                                </div>
-                                """
-                                st.write(html_output, unsafe_allow_html=True)
-
+                                st.write(dfp_display.to_html(escape=False, index=False), unsafe_allow_html=True)
                         else:
                             st.info("参加ルーム情報が取得できませんでした（イベント側データが空か、データの取得に失敗しました）。") 
                     except Exception as e:
-                        # 最終的なエラーメッセージのみ残します
                         st.error(f"参加ルーム情報の取得中にエラーが発生しました: {e}")
         # --- ▲ 判定ここまで ▲ ---
+
+
 
     st.markdown("---")
 
