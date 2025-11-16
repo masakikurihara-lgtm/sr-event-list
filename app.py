@@ -482,6 +482,8 @@ def get_event_participants(event, limit=10):
                     "show_rank_subdivided": profile.get("show_rank_subdivided") or "",
                     "follower_num": int(profile.get("follower_num", 0)),
                     "live_continuous_days": int(profile.get("live_continuous_days", 0)),
+                    # ★★★ 修正箇所: is_official の情報を参加者データに追加 ★★★
+                    "is_official": profile.get("is_official", False),
                 })
             except Exception:
                 continue
@@ -586,7 +588,7 @@ def display_event_info(event):
         except Exception:
             show_participants_button = False
 
-# ※ バックアップ(BU)由来などで _fetched_status が無い場合はボタンは出しません（APIで取得できたもののみ対象）
+        # ※ バックアップ(BU)由来などで _fetched_status が無い場合はボタンは出しません（APIで取得できたもののみ対象）
         if show_participants_button:
             btn_key = f"show_participants_{event.get('event_id')}"
             if st.button("参加ルーム情報を表示", key=btn_key):
@@ -602,10 +604,8 @@ def display_event_info(event):
                             # participantsリストの各辞書に '公/フ' のキーを追加
                             processed_participants = []
                             for p in participants:
-                                # データがない場合や is_official がない場合に備えて "-" をデフォルトとする
-                                official_status = "-" 
-                                # is_official キーの存在を確認
-                                if p and "is_official" in p: 
+                                official_status = "フ" # デフォルトはフリー
+                                if "is_official" in p:
                                     official_status = "公" if p["is_official"] else "フ"
                                 p['official_status_jp'] = official_status
                                 processed_participants.append(p)
@@ -651,39 +651,27 @@ def display_event_info(event):
                                     return str(v)
 
                             # --- ▼ 列ごとにフォーマット適用（確実に順序反映） ▼ ---
-                            # ポイントとカンマ区切りなしの列を定義
-                            comma_cols = ['ポイント']
-                            no_comma_cols = ['ルームレベル', 'フォロワー数', 'まいにち配信', '順位']
-                            
                             for col in dfp_display.columns:
-                                if col in comma_cols:
+                                # ✅ カンマ区切り「あり」列
+                                if col == 'ポイント':
                                     dfp_display[col] = dfp_display[col].apply(lambda x: _fmt_int_for_display(x, use_comma=True))
-                                elif col in no_comma_cols:
-                                    dfp_display[col] = dfp_display[col].apply(lambda x: _fmt_int_for_display(x, use_comma=False))
-                                # '公/フ' は上記リストに含まれないため、そのまま文字列として残る
 
-                            # --- ▼ リンク作成とHTML出力のロジックを元の形に復元（シンプル化） ▼ ---
-                            
+                                # ✅ カンマ区切り「なし」列
+                                elif col in ['ルームレベル', 'フォロワー数', 'まいにち配信', '順位']:
+                                    dfp_display[col] = dfp_display[col].apply(lambda x: _fmt_int_for_display(x, use_comma=False))
+                                
+                                # ★公/フ列は文字列なのでフォーマットスキップ
+
                             # ルーム名をリンクにしてテーブル表示（HTMLテーブルを利用）
                             def _make_link(row):
-                                # DataFrameの列名が日本語化されていることを前提とする
                                 rid = row['ルームID']
                                 name = row['ルーム名'] or f"room_{rid}"
                                 return f'<a href="https://www.showroom-live.com/room/profile?room_id={rid}" target="_blank">{name}</a>'
-                            
                             dfp_display['ルーム名'] = dfp_display.apply(_make_link, axis=1)
 
                             # コンパクトに expander 内で表示（領域を占有しない）
                             with st.expander("参加ルーム一覧（最大10ルーム）", expanded=True):
-                                # HTMLテーブルを生成し、横スクロールを保証するDIVでラップ
-                                html_output = f"""
-                                <div style="overflow-x: auto; max-width: 100%;">
-                                    {dfp_display.to_html(escape=False, index=False)}
-                                </div>
-                                """
-                                st.write(html_output, unsafe_allow_html=True)
-                            # --- ▲ リンク作成とHTML出力のロジックを元の形に復元（シンプル化） ▲ ---
-
+                                st.write(dfp_display.to_html(escape=False, index=False), unsafe_allow_html=True)
                         else:
                             st.info("参加ルーム情報が取得できませんでした（イベント側データが空か、データの取得に失敗しました）。") 
                     except Exception as e:
