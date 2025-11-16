@@ -651,35 +651,66 @@ def display_event_info(event):
                                     return str(v)
 
                             # --- ▼ 列ごとにフォーマット適用（確実に順序反映） ▼ ---
+                            # ポイントとカンマ区切りなしの列を定義
+                            comma_cols = ['ポイント']
+                            no_comma_cols = ['ルームレベル', 'フォロワー数', 'まいにち配信', '順位']
+                            
                             for col in dfp_display.columns:
-                                # ✅ カンマ区切り「あり」列
-                                if col == 'ポイント':
+                                if col in comma_cols:
                                     dfp_display[col] = dfp_display[col].apply(lambda x: _fmt_int_for_display(x, use_comma=True))
-
-                                # ✅ カンマ区切り「なし」列
-                                elif col in ['ルームレベル', 'フォロワー数', 'まいにち配信', '順位']:
+                                elif col in no_comma_cols:
                                     dfp_display[col] = dfp_display[col].apply(lambda x: _fmt_int_for_display(x, use_comma=False))
-                                
-                                # ★公/フ列は文字列なのでフォーマットスキップ
-
-                            # ルーム名をリンクにしてテーブル表示（HTMLテーブルを利用）
-                            def _make_link(row):
-                                rid = row['ルームID']
-                                name = row['ルーム名'] or f"room_{rid}"
-                                return f'<a href="https://www.showroom-live.com/room/profile?room_id={rid}" target="_blank">{name}</a>'
-                            dfp_display['ルーム名'] = dfp_display.apply(_make_link, axis=1)
+                                # '公/フ' は上記リストに含まれないため、そのまま文字列として残る
 
                             # コンパクトに expander 内で表示（領域を占有しない）
                             with st.expander("参加ルーム一覧（最大10ルーム）", expanded=True):
-                                # --- ★再修正ポイント: HTMLテーブルをスクロール可能なDIVで囲む ---
-                                html_table = dfp_display.to_html(escape=False, index=False)
+                                # --- ★再修正ポイント: HTMLを直接組み立てて表示を保証する ---
                                 
-                                html_output = f"""
-                                <div style="overflow-x: auto; max-width: 100%;">
-                                    {html_table}
-                                </div>
-                                """
-                                st.write(html_output, unsafe_allow_html=True)
+                                # 1. ヘッダーの定義 (順序変更に合わせて公/フを追加)
+                                headers = dfp_display.columns.tolist()
+                                
+                                # 2. スタイル定義（Streamlitのデフォルトテーブルスタイルに合わせる）
+                                html_parts = ['<style>.dataframe { width: 100%; } .dataframe th:nth-child(6), .dataframe td:nth-child(6) { min-width: 50px; }</style>']
+                                html_parts.append('<div style="overflow-x: auto; max-width: 100%;">')
+                                html_parts.append('<table class="dataframe">')
+                                
+                                # ヘッダー行
+                                html_parts.append('<thead><tr>')
+                                for h in headers:
+                                    html_parts.append(f'<th>{h}</th>')
+                                html_parts.append('</tr></thead>')
+                                
+                                # ボディ行
+                                html_parts.append('<tbody>')
+                                for index, row in dfp_display.iterrows():
+                                    html_parts.append('<tr>')
+                                    
+                                    # 列データの取得とHTMLへの追加
+                                    for i, col in enumerate(headers):
+                                        val = str(row[col]) if row[col] is not None else ""
+                                        
+                                        if col == 'ルーム名':
+                                            # ルーム名をリンクにするロジックを再実装
+                                            rid = dfp['room_id'].iloc[index] # 元のDataFrameからroom_idを取得
+                                            name = row[col] or f"room_{rid}"
+                                            content = f'<a href="https://www.showroom-live.com/room/profile?room_id={rid}" target="_blank">{name}</a>'
+                                            html_parts.append(f'<td style="text-align: left;">{content}</td>')
+                                        elif col == '公/フ':
+                                            # '公/フ'列: 中央寄せを保証
+                                            html_parts.append(f'<td style="text-align: center;">{val}</td>')
+                                        elif col in ['ルームレベル', 'SHOWランク', 'フォロワー数', 'まいにち配信', 'ルームID', '順位', 'ポイント']:
+                                            # その他の列
+                                            html_parts.append(f'<td style="text-align: right;">{val}</td>')
+                                        else:
+                                            html_parts.append(f'<td>{val}</td>')
+
+                                    html_parts.append('</tr>')
+
+                                html_parts.append('</tbody>')
+                                html_parts.append('</table>')
+                                html_parts.append('</div>')
+
+                                st.write("".join(html_parts), unsafe_allow_html=True)
                                 # --- ★再修正ポイント終了 ---
 
                         else:
