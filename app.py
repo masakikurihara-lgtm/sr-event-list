@@ -671,7 +671,17 @@ def display_event_info(event):
 
                             # コンパクトに expander 内で表示（領域を占有しない）
                             with st.expander("参加ルーム一覧（最大10ルーム）", expanded=True):
-                                st.write(dfp_display.to_html(escape=False, index=False), unsafe_allow_html=True)
+                                # --- ★再修正ポイント: HTMLテーブルをスクロール可能なDIVで囲む ---
+                                html_table = dfp_display.to_html(escape=False, index=False)
+                                
+                                html_output = f"""
+                                <div style="overflow-x: auto; max-width: 100%;">
+                                    {html_table}
+                                </div>
+                                """
+                                st.write(html_output, unsafe_allow_html=True)
+                                # --- ★再修正ポイント終了 ---
+
                         else:
                             st.info("参加ルーム情報が取得できませんでした（イベント側データが空か、データの取得に失敗しました）。") 
                     except Exception as e:
