@@ -586,7 +586,7 @@ def display_event_info(event):
         except Exception:
             show_participants_button = False
 
-        # ※ バックアップ(BU)由来などで _fetched_status が無い場合はボタンは出しません（APIで取得できたもののみ対象）
+# ※ バックアップ(BU)由来などで _fetched_status が無い場合はボタンは出しません（APIで取得できたもののみ対象）
         if show_participants_button:
             btn_key = f"show_participants_{event.get('event_id')}"
             if st.button("参加ルーム情報を表示", key=btn_key):
@@ -602,8 +602,10 @@ def display_event_info(event):
                             # participantsリストの各辞書に '公/フ' のキーを追加
                             processed_participants = []
                             for p in participants:
-                                official_status = "フ" # デフォルトはフリー
+                                # データがない場合や is_official がない場合に備えて "-" をデフォルトとする
+                                official_status = "-" 
                                 if "is_official" in p:
+                                    # is_official が存在する場合、その値に基づいて '公' または 'フ' を設定
                                     official_status = "公" if p["is_official"] else "フ"
                                 p['official_status_jp'] = official_status
                                 processed_participants.append(p)
