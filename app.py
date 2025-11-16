@@ -604,8 +604,8 @@ def display_event_info(event):
                             for p in participants:
                                 # データがない場合や is_official がない場合に備えて "-" をデフォルトとする
                                 official_status = "-" 
-                                if "is_official" in p:
-                                    # is_official が存在する場合、その値に基づいて '公' または 'フ' を設定
+                                # is_official キーの存在を確認
+                                if p and "is_official" in p: 
                                     official_status = "公" if p["is_official"] else "フ"
                                 p['official_status_jp'] = official_status
                                 processed_participants.append(p)
@@ -662,56 +662,27 @@ def display_event_info(event):
                                     dfp_display[col] = dfp_display[col].apply(lambda x: _fmt_int_for_display(x, use_comma=False))
                                 # '公/フ' は上記リストに含まれないため、そのまま文字列として残る
 
+                            # --- ▼ リンク作成とHTML出力のロジックを元の形に復元（シンプル化） ▼ ---
+                            
+                            # ルーム名をリンクにしてテーブル表示（HTMLテーブルを利用）
+                            def _make_link(row):
+                                # DataFrameの列名が日本語化されていることを前提とする
+                                rid = row['ルームID']
+                                name = row['ルーム名'] or f"room_{rid}"
+                                return f'<a href="https://www.showroom-live.com/room/profile?room_id={rid}" target="_blank">{name}</a>'
+                            
+                            dfp_display['ルーム名'] = dfp_display.apply(_make_link, axis=1)
+
                             # コンパクトに expander 内で表示（領域を占有しない）
                             with st.expander("参加ルーム一覧（最大10ルーム）", expanded=True):
-                                # --- ★再修正ポイント: HTMLを直接組み立てて表示を保証する ---
-                                
-                                # 1. ヘッダーの定義 (順序変更に合わせて公/フを追加)
-                                headers = dfp_display.columns.tolist()
-                                
-                                # 2. スタイル定義（Streamlitのデフォルトテーブルスタイルに合わせる）
-                                html_parts = ['<style>.dataframe { width: 100%; } .dataframe th:nth-child(6), .dataframe td:nth-child(6) { min-width: 50px; }</style>']
-                                html_parts.append('<div style="overflow-x: auto; max-width: 100%;">')
-                                html_parts.append('<table class="dataframe">')
-                                
-                                # ヘッダー行
-                                html_parts.append('<thead><tr>')
-                                for h in headers:
-                                    html_parts.append(f'<th>{h}</th>')
-                                html_parts.append('</tr></thead>')
-                                
-                                # ボディ行
-                                html_parts.append('<tbody>')
-                                for index, row in dfp_display.iterrows():
-                                    html_parts.append('<tr>')
-                                    
-                                    # 列データの取得とHTMLへの追加
-                                    for i, col in enumerate(headers):
-                                        val = str(row[col]) if row[col] is not None else ""
-                                        
-                                        if col == 'ルーム名':
-                                            # ルーム名をリンクにするロジックを再実装
-                                            rid = dfp['room_id'].iloc[index] # 元のDataFrameからroom_idを取得
-                                            name = row[col] or f"room_{rid}"
-                                            content = f'<a href="https://www.showroom-live.com/room/profile?room_id={rid}" target="_blank">{name}</a>'
-                                            html_parts.append(f'<td style="text-align: left;">{content}</td>')
-                                        elif col == '公/フ':
-                                            # '公/フ'列: 中央寄せを保証
-                                            html_parts.append(f'<td style="text-align: center;">{val}</td>')
-                                        elif col in ['ルームレベル', 'SHOWランク', 'フォロワー数', 'まいにち配信', 'ルームID', '順位', 'ポイント']:
-                                            # その他の列
-                                            html_parts.append(f'<td style="text-align: right;">{val}</td>')
-                                        else:
-                                            html_parts.append(f'<td>{val}</td>')
-
-                                    html_parts.append('</tr>')
-
-                                html_parts.append('</tbody>')
-                                html_parts.append('</table>')
-                                html_parts.append('</div>')
-
-                                st.write("".join(html_parts), unsafe_allow_html=True)
-                                # --- ★再修正ポイント終了 ---
+                                # HTMLテーブルを生成し、横スクロールを保証するDIVでラップ
+                                html_output = f"""
+                                <div style="overflow-x: auto; max-width: 100%;">
+                                    {dfp_display.to_html(escape=False, index=False)}
+                                </div>
+                                """
+                                st.write(html_output, unsafe_allow_html=True)
+                            # --- ▲ リンク作成とHTML出力のロジックを元の形に復元（シンプル化） ▲ ---
 
                         else:
                             st.info("参加ルーム情報が取得できませんでした（イベント側データが空か、データの取得に失敗しました）。") 
