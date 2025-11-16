@@ -596,17 +596,38 @@ def display_event_info(event):
                         if participants:
                             # DataFrame 化して列名を日本語化して表示（ルーム名はリンク付きで表示）
                             import pandas as _pd
-                            dfp = _pd.DataFrame(participants)
+                            
+                            # --- ★修正開始：is_officialを「公/フ」に変換する処理を追加 ---
+                            
+                            # participantsリストの各辞書に '公/フ' のキーを追加
+                            processed_participants = []
+                            for p in participants:
+                                official_status = "フ" # デフォルトはフリー
+                                if "is_official" in p:
+                                    official_status = "公" if p["is_official"] else "フ"
+                                p['official_status_jp'] = official_status
+                                processed_participants.append(p)
+
+                            dfp = _pd.DataFrame(processed_participants)
+                            # --- ★修正終了 ---
+
+                            # 既存のcolsリストに 'official_status_jp' を追加し、順序を「まいにち配信」の直後に変更
                             cols = [
                                 'room_name', 'room_level', 'show_rank_subdivided', 'follower_num',
-                                'live_continuous_days', 'room_id', 'rank', 'point'
+                                'live_continuous_days', 'official_status_jp', 'room_id', 'rank', 'point' # ★順序変更
                             ]
+                            
+                            # 存在しない列の追加（既存ロジックを維持）
                             for c in cols:
                                 if c not in dfp.columns:
                                     dfp[c] = ""
+                            
                             dfp_display = dfp[cols].copy()
+                            
+                            # 既存のrename辞書に 'official_status_jp' の日本語名を追加
                             dfp_display.rename(columns={
                                 'room_name': 'ルーム名',
+                                'official_status_jp': '公/フ',  # ★追加
                                 'room_level': 'ルームレベル',
                                 'show_rank_subdivided': 'SHOWランク',
                                 'follower_num': 'フォロワー数',
@@ -619,7 +640,7 @@ def display_event_info(event):
                             # --- ▼ 数値フォーマット関数（カンマ区切りを切替可能） ▼ ---
                             def _fmt_int_for_display(v, use_comma=True):
                                 try:
-                                    if v is None or (isinstance(v, str) and v.strip() == ""):
+                                    if v is None or (_pd.isna(v)) or (isinstance(v, str) and v.strip() == ""):
                                         return ""
                                     num = float(v)
                                     # ✅ カンマ区切りあり or なしを切り替え
@@ -636,6 +657,8 @@ def display_event_info(event):
                                 # ✅ カンマ区切り「なし」列
                                 elif col in ['ルームレベル', 'フォロワー数', 'まいにち配信', '順位']:
                                     dfp_display[col] = dfp_display[col].apply(lambda x: _fmt_int_for_display(x, use_comma=False))
+                                
+                                # ★公/フ列は文字列なのでフォーマットスキップ
 
                             # ルーム名をリンクにしてテーブル表示（HTMLテーブルを利用）
                             def _make_link(row):
