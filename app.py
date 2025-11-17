@@ -65,6 +65,14 @@ table {
     width: 100%;
 }
 
+.room-name-ellipsis {
+    max-width: 180px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: inline-block;
+}
+
 /* ---------- スマホ・タブレット対応 ---------- */
 @media screen and (max-width: 1024px) {
     table {
@@ -124,6 +132,8 @@ def normalize_event_id_val(val):
             return None
 
 # --- データ取得関数 ---
+
+
 
 # --- FTPヘルパー関数群 ---
 def ftp_upload(file_path, content_bytes):
@@ -383,6 +393,19 @@ def get_room_profile_api(room_id):
     except Exception:
         return {}
 
+
+def get_official_mark(room_id):
+    """ルームの公式/フリー区分を返す（公/フ）"""
+    try:
+        prof = get_room_profile_api(room_id)
+        if prof.get("is_official") is True:
+            return "公"
+        else:
+            return "フ"
+    except Exception:
+        return ""
+
+
 def _show_rank_score(rank_str):
     """
     SHOWランクをソート可能なスコアに変換する簡易ヘルパー。
@@ -605,6 +628,8 @@ def display_event_info(event):
                                 if c not in dfp.columns:
                                     dfp[c] = ""
                             dfp_display = dfp[cols].copy()
+
+                            # ▼ まず rename（必ず先！）
                             dfp_display.rename(columns={
                                 'room_name': 'ルーム名',
                                 'room_level': 'ルームレベル',
@@ -615,6 +640,15 @@ def display_event_info(event):
                                 'rank': '順位',
                                 'point': 'ポイント'
                             }, inplace=True)
+
+                            # ▼ 次に 公/フ を追加（列名 ルームID が存在する状態で）
+                            dfp_display["公/フ"] = dfp_display["ルームID"].apply(get_official_mark)
+
+                            # ▼ 列順をここで整える（仕様通り）
+                            dfp_display = dfp_display[
+                                ['ルーム名', 'ルームレベル', 'SHOWランク', 'フォロワー数',
+                                 'まいにち配信', '公/フ', 'ルームID', '順位', 'ポイント']
+                            ]
 
                             # --- ▼ 数値フォーマット関数（カンマ区切りを切替可能） ▼ ---
                             def _fmt_int_for_display(v, use_comma=True):
@@ -641,7 +675,17 @@ def display_event_info(event):
                             def _make_link(row):
                                 rid = row['ルームID']
                                 name = row['ルーム名'] or f"room_{rid}"
-                                return f'<a href="https://www.showroom-live.com/room/profile?room_id={rid}" target="_blank">{name}</a>'
+                                # return f'<a href="https://www.showroom-live.com/room/profile?room_id={rid}" target="_blank">{name}</a>'
+                                short = name
+                                if len(short) > 18:  # 一応18文字で省略（必要に応じ変更可）
+                                    short = short[:15] + "..."
+
+                                return (
+                                    f'<a class="room-name-ellipsis" '
+                                    f'href="https://www.showroom-live.com/room/profile?room_id={rid}" '
+                                    f'target="_blank">{short}</a>'
+                                )
+
                             dfp_display['ルーム名'] = dfp_display.apply(_make_link, axis=1)
 
                             # コンパクトに expander 内で表示（領域を占有しない）
@@ -854,6 +898,14 @@ def display_ranking_table(event_id):
         "quest_level": "レベル",
     }, inplace=True)
 
+    # ▼ 公/フ を追加（必ず rename の後）
+    df_display["公/フ"] = df_display["room_id"].apply(get_official_mark)
+
+    # ▼ 列順を仕様通りに変更
+    df_display = df_display[
+        ["ルーム名", "順位", "ポイント", "上位との差", "レベル", "公/フ", "room_id"]
+    ]
+
     # --- ▼ 貢献ランク列を追加 ---
     def make_contrib_link(rid):
         if not event_url_key or not rid:
@@ -887,7 +939,17 @@ def display_ranking_table(event_id):
     def make_room_link(row):
         rid = row["room_id"]
         name = row["ルーム名"] or f"room_{rid}"
-        return f'<a href="https://www.showroom-live.com/room/profile?room_id={rid}" target="_blank">{name}</a>'
+        # return f'<a href="https://www.showroom-live.com/room/profile?room_id={rid}" target="_blank">{name}</a>'
+        short = name
+        if len(short) > 18:  # 一応18文字で省略（必要に応じ変更可）
+            short = short[:15] + "..."
+
+        return (
+            f'<a class="room-name-ellipsis" '
+            f'href="https://www.showroom-live.com/room/profile?room_id={rid}" '
+            f'target="_blank">{short}</a>'
+        )
+
     df_display["ルーム名"] = df_display.apply(make_room_link, axis=1)
 
     # --- ▼ 数値フォーマット ---
@@ -895,7 +957,12 @@ def display_ranking_table(event_id):
         df_display[col] = df_display[col].apply(lambda x: f"{x:,}" if isinstance(x, (int, float)) else x)
 
     # --- ▼ 表示列の順序を明確化（room_idは非表示） ---
-    display_cols = ["ルーム名", "順位", "ポイント", "上位との差", "レベル", "貢献ランク"]
+    # display_cols = ["ルーム名", "順位", "ポイント", "上位との差", "レベル", "貢献ランク"]
+    display_cols = [
+        "ルーム名", "順位", "ポイント", "上位との差",
+        "レベル", "公/フ", "貢献ランク"
+    ]
+
 
     # --- ▼ HTMLテーブル生成 ---
     html_table = style_html
@@ -1399,6 +1466,9 @@ def main():
                                         inplace=True
                                     )
                                     dfp_display = dfp[cols].copy()
+                                    # ▼ 公/フ 列追加
+                                    dfp_display["公/フ"] = dfp_display["ルームID"].apply(get_official_mark)
+
                                     dfp_display.rename(columns={
                                         'room_name': 'ルーム名',
                                         'room_level': 'ルームレベル',
@@ -1413,7 +1483,17 @@ def main():
                                     def _make_link(row):
                                         rid = row['ルームID']
                                         name = row['ルーム名'] or f"room_{rid}"
-                                        return f'<a href="https://www.showroom-live.com/room/profile?room_id={rid}" target="_blank">{name}</a>'
+                                        # return f'<a href="https://www.showroom-live.com/room/profile?room_id={rid}" target="_blank">{name}</a>'
+                                        short = name
+                                        if len(short) > 18:  # 一応18文字で省略（必要に応じ変更可）
+                                            short = short[:15] + "..."
+
+                                        return (
+                                            f'<a class="room-name-ellipsis" '
+                                            f'href="https://www.showroom-live.com/room/profile?room_id={rid}" '
+                                            f'target="_blank">{short}</a>'
+                                        )
+
                                     dfp_display['ルーム名'] = dfp_display.apply(_make_link, axis=1)
 
                                     # 数値フォーマット関数
