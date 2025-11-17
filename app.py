@@ -1482,6 +1482,11 @@ def main():
                                     # ▼ 2. 公/フ 追加（rename 後なので安全）
                                     dfp_display["公/フ"] = dfp_display["ルームID"].apply(get_official_mark)
 
+                                    dfp_display = dfp_display[
+                                        ['ルーム名', 'ルームレベル', 'SHOWランク', 'フォロワー数',
+                                         'まいにち配信', '公/フ', 'ルームID', '順位', 'ポイント']
+                                    ]
+
                                     def _make_link(row):
                                         rid = row['ルームID']
                                         name = row['ルーム名'] or f"room_{rid}"
