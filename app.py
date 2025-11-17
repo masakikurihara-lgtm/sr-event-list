@@ -1466,9 +1466,8 @@ def main():
                                         inplace=True
                                     )
                                     dfp_display = dfp[cols].copy()
-                                    # ▼ 公/フ 列追加
-                                    dfp_display["公/フ"] = dfp_display["ルームID"].apply(get_official_mark)
 
+                                    # ▼ 1. rename（必ず先）
                                     dfp_display.rename(columns={
                                         'room_name': 'ルーム名',
                                         'room_level': 'ルームレベル',
@@ -1479,6 +1478,9 @@ def main():
                                         'rank': '順位',
                                         'point': 'ポイント'
                                     }, inplace=True)
+
+                                    # ▼ 2. 公/フ 追加（rename 後なので安全）
+                                    dfp_display["公/フ"] = dfp_display["ルームID"].apply(get_official_mark)
 
                                     def _make_link(row):
                                         rid = row['ルームID']
