@@ -677,16 +677,16 @@ def display_event_info(event):
                             def _make_link(row):
                                 rid = row['ルームID']
                                 name = row['ルーム名'] or f"room_{rid}"
-                                # return f'<a href="https://www.showroom-live.com/room/profile?room_id={rid}" target="_blank">{name}</a>'
-                                short = name
-                                if len(short) > 18:  # 一応18文字で省略（必要に応じ変更可）
-                                    short = short[:15] + "..."
+                                return f'<a href="https://www.showroom-live.com/room/profile?room_id={rid}" target="_blank">{name}</a>'
+                                # short = name
+                                # if len(short) > 18:  # 一応18文字で省略（必要に応じ変更可）
+                                #     short = short[:15] + "..."
 
-                                return (
-                                    f'<a class="room-name-ellipsis" '
-                                    f'href="https://www.showroom-live.com/room/profile?room_id={rid}" '
-                                    f'target="_blank">{short}</a>'
-                                )
+                                # return (
+                                #     f'<a class="room-name-ellipsis" '
+                                #     f'href="https://www.showroom-live.com/room/profile?room_id={rid}" '
+                                #     f'target="_blank">{short}</a>'
+                                # )
 
                             dfp_display['ルーム名'] = dfp_display.apply(_make_link, axis=1)
 
@@ -941,16 +941,16 @@ def display_ranking_table(event_id):
     def make_room_link(row):
         rid = row["room_id"]
         name = row["ルーム名"] or f"room_{rid}"
-        # return f'<a href="https://www.showroom-live.com/room/profile?room_id={rid}" target="_blank">{name}</a>'
-        short = name
-        if len(short) > 18:  # 一応18文字で省略（必要に応じ変更可）
-            short = short[:15] + "..."
+        return f'<a href="https://www.showroom-live.com/room/profile?room_id={rid}" target="_blank">{name}</a>'
+        # short = name
+        # if len(short) > 18:  # 一応18文字で省略（必要に応じ変更可）
+        #     short = short[:15] + "..."
 
-        return (
-            f'<a class="room-name-ellipsis" '
-            f'href="https://www.showroom-live.com/room/profile?room_id={rid}" '
-            f'target="_blank">{short}</a>'
-        )
+        # return (
+        #     f'<a class="room-name-ellipsis" '
+        #     f'href="https://www.showroom-live.com/room/profile?room_id={rid}" '
+        #     f'target="_blank">{short}</a>'
+        # )
 
     df_display["ルーム名"] = df_display.apply(make_room_link, axis=1)
 
@@ -1492,16 +1492,16 @@ def main():
                                     def _make_link(row):
                                         rid = row['ルームID']
                                         name = row['ルーム名'] or f"room_{rid}"
-                                        # return f'<a href="https://www.showroom-live.com/room/profile?room_id={rid}" target="_blank">{name}</a>'
-                                        short = name
-                                        if len(short) > 18:  # 一応18文字で省略（必要に応じ変更可）
-                                            short = short[:15] + "..."
+                                        return f'<a href="https://www.showroom-live.com/room/profile?room_id={rid}" target="_blank">{name}</a>'
+                                        # short = name
+                                        # if len(short) > 18:  # 一応18文字で省略（必要に応じ変更可）
+                                        #     short = short[:15] + "..."
 
-                                        return (
-                                            f'<a class="room-name-ellipsis" '
-                                            f'href="https://www.showroom-live.com/room/profile?room_id={rid}" '
-                                            f'target="_blank">{short}</a>'
-                                        )
+                                        # return (
+                                        #     f'<a class="room-name-ellipsis" '
+                                        #     f'href="https://www.showroom-live.com/room/profile?room_id={rid}" '
+                                        #     f'target="_blank">{short}</a>'
+                                        # )
 
                                     dfp_display['ルーム名'] = dfp_display.apply(_make_link, axis=1)
 
