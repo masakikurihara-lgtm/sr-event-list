@@ -677,7 +677,7 @@ def display_event_info(event):
                                 name = row['ルーム名'] or f"room_{rid}"
                                 # return f'<a href="https://www.showroom-live.com/room/profile?room_id={rid}" target="_blank">{name}</a>'
                                 short = name
-                                if len(short) > 18:  # 一応18文字で省略（必要に応じ変更可）
+                                if len(short) > 28:  # 一応18文字で省略（必要に応じ変更可）
                                     short = short[:15] + "..."
 
                                 return (
@@ -941,7 +941,7 @@ def display_ranking_table(event_id):
         name = row["ルーム名"] or f"room_{rid}"
         # return f'<a href="https://www.showroom-live.com/room/profile?room_id={rid}" target="_blank">{name}</a>'
         short = name
-        if len(short) > 18:  # 一応18文字で省略（必要に応じ変更可）
+        if len(short) > 28:  # 一応18文字で省略（必要に応じ変更可）
             short = short[:15] + "..."
 
         return (
@@ -1492,7 +1492,7 @@ def main():
                                         name = row['ルーム名'] or f"room_{rid}"
                                         # return f'<a href="https://www.showroom-live.com/room/profile?room_id={rid}" target="_blank">{name}</a>'
                                         short = name
-                                        if len(short) > 18:  # 一応18文字で省略（必要に応じ変更可）
+                                        if len(short) > 28:  # 一応18文字で省略（必要に応じ変更可）
                                             short = short[:15] + "..."
 
                                         return (
