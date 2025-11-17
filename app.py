@@ -65,6 +65,7 @@ table {
     width: 100%;
 }
 
+/*
 .room-name-ellipsis {
     max-width: 250px;
     white-space: nowrap;
@@ -72,6 +73,7 @@ table {
     text-overflow: ellipsis;
     display: inline-block;
 }
+*/
 
 /* ---------- スマホ・タブレット対応 ---------- */
 @media screen and (max-width: 1024px) {
@@ -677,8 +679,8 @@ def display_event_info(event):
                                 name = row['ルーム名'] or f"room_{rid}"
                                 # return f'<a href="https://www.showroom-live.com/room/profile?room_id={rid}" target="_blank">{name}</a>'
                                 short = name
-                                if len(short) > 28:  # 一応18文字で省略（必要に応じ変更可）
-                                    short = short[:25] + "..."
+                                if len(short) > 18:  # 一応18文字で省略（必要に応じ変更可）
+                                    short = short[:15] + "..."
 
                                 return (
                                     f'<a class="room-name-ellipsis" '
@@ -941,8 +943,8 @@ def display_ranking_table(event_id):
         name = row["ルーム名"] or f"room_{rid}"
         # return f'<a href="https://www.showroom-live.com/room/profile?room_id={rid}" target="_blank">{name}</a>'
         short = name
-        if len(short) > 28:  # 一応18文字で省略（必要に応じ変更可）
-            short = short[:25] + "..."
+        if len(short) > 18:  # 一応18文字で省略（必要に応じ変更可）
+            short = short[:15] + "..."
 
         return (
             f'<a class="room-name-ellipsis" '
@@ -1492,8 +1494,8 @@ def main():
                                         name = row['ルーム名'] or f"room_{rid}"
                                         # return f'<a href="https://www.showroom-live.com/room/profile?room_id={rid}" target="_blank">{name}</a>'
                                         short = name
-                                        if len(short) > 28:  # 一応18文字で省略（必要に応じ変更可）
-                                            short = short[:25] + "..."
+                                        if len(short) > 18:  # 一応18文字で省略（必要に応じ変更可）
+                                            short = short[:15] + "..."
 
                                         return (
                                             f'<a class="room-name-ellipsis" '
