@@ -66,7 +66,7 @@ table {
 }
 
 .room-name-ellipsis {
-    max-width: 180px;
+    max-width: 250px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
