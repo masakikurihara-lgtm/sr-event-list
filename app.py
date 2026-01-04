@@ -559,6 +559,70 @@ def get_event_participants(event, limit=10):
 
 
 
+def render_event_summary_table(events):
+    """
+    フィルタ後イベントを一覧表（HTML）で表示する
+    ※ 表示専用・既存ロジックには一切影響しない
+    """
+    if not events:
+        return
+
+    rows = []
+    for e in events:
+        try:
+            event_url = f"{EVENT_PAGE_BASE_URL}{e['event_url_key']}"
+            target = "対象者限定" if e.get("is_entry_scope_inner") else "全ライバー"
+            start = datetime.fromtimestamp(e['started_at'], JST).strftime('%Y/%m/%d %H:%M')
+            end = datetime.fromtimestamp(e['ended_at'], JST).strftime('%Y/%m/%d %H:%M')
+            total = get_total_entries(e['event_id'])
+
+            rows.append({
+                "name": f'<a href="{event_url}" target="_blank">{e["event_name"]}</a>',
+                "target": target,
+                "period": f"{start} - {end}",
+                "total": total
+            })
+        except Exception:
+            continue
+
+    if not rows:
+        return
+
+    html = """
+    <div class="table-wrapper" style="max-height:360px; overflow-y:auto;">
+      <table>
+        <thead>
+          <tr style="background:#f3f4f6;">
+            <th>イベント名</th>
+            <th>対象</th>
+            <th>期間</th>
+            <th>参加ルーム数</th>
+          </tr>
+        </thead>
+        <tbody>
+    """
+
+    for r in rows:
+        html += f"""
+        <tr>
+          <td>{r['name']}</td>
+          <td style="text-align:center;">{r['target']}</td>
+          <td>{r['period']}</td>
+          <td style="text-align:right;">{r['total']}</td>
+        </tr>
+        """
+
+    html += """
+        </tbody>
+      </table>
+    </div>
+    """
+
+    st.markdown("### 📋 イベント一覧（概要）")
+    st.markdown(html, unsafe_allow_html=True)
+
+
+
 # --- UI表示関数 ---
 
 def display_event_info(event):
@@ -1385,6 +1449,7 @@ def main():
             st.success(f"{filtered_count}件のイベントが見つかりました。")
         
         st.markdown("---")
+        render_event_summary_table(filtered_events)
         # 取得したイベント情報を1つずつ表示
         for event in filtered_events:
             col1, col2 = st.columns([1, 4])
