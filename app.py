@@ -1604,7 +1604,7 @@ def main():
 
         st.markdown("##### 📋 一覧表示")
 
-        # --- 1. CSVデータの生成 ---
+        # --- 1. CSVデータの生成 (元の文字化けしないロジックを維持) ---
         download_data = []
         for e in filtered_events:
             download_data.append({
@@ -1616,19 +1616,18 @@ def main():
             })
 
         df_download = pd.DataFrame(download_data)
-        # Excel対策のBOM付きUTF-8
-        csv_str = df_download.to_csv(index=False, encoding='utf-8-sig')
-        # HTML内で扱えるようにBase64エンコード
-        b64_csv = base64.b64encode(csv_str.encode()).decode()
+        # 前に「大丈夫そう」と言っていただいた「utf-8-sig」のエンコードをそのまま使用
+        csv_bytes = df_download.to_csv(index=False, encoding='utf-8-sig').encode('utf-8-sig')
+        b64_csv = base64.b64encode(csv_bytes).decode()
 
-        # --- 2. HTMLの作成 (ボタンを中に含める) ---
+        # --- 2. HTMLの作成 (テーブルとボタンを一体化して隙間を無くす) ---
         html = f"""
         <style>
         .summary-wrapper {{
             max-height: 80vh;
             overflow-y: auto;
             border: 1px solid #d1d5db;
-            margin-bottom: 8px; /* 下のボタンとの隙間を最小限に */
+            margin-bottom: 10px; /* テーブルとボタンの距離 */
         }}
         .summary-table {{
             width: 100%;
@@ -1666,24 +1665,20 @@ def main():
             border-right: none;
         }}
 
-        /* ダウンロードボタンのスタイル（Streamlit風） */
-        .dl-btn {{
+        /* ダウンロードボタンのスタイル (見た目だけStreamlit風に再現) */
+        .dl-link {{
             display: inline-flex;
             align-items: center;
-            justify-content: center;
-            padding: 0.25rem 0.75rem;
+            padding: 0.4rem 0.8rem;
             border-radius: 0.5rem;
-            margin: 0;
-            line-height: 1.6;
             color: #31333F;
             background-color: #FFFFFF;
             border: 1px solid #d1d5db;
             text-decoration: none;
             font-size: 0.85rem;
             font-family: sans-serif;
-            cursor: pointer;
         }}
-        .dl-btn:hover {{
+        .dl-link:hover {{
             border-color: #FF4B4B;
             color: #FF4B4B;
         }}
@@ -1718,12 +1713,12 @@ def main():
                 </tbody>
             </table>
         </div>
-        <a class="dl-btn" href="data:text/csv;base64,{b64_csv}" download="event_list.csv">
+        <a class="dl-link" href="data:text/csv;base64,{b64_csv}" download="event_list.csv">
             📊 この内容をCSVでダウンロード
         </a>
         """
 
-        # heightをボタン含めて収まるように少し調整 (750 -> 800)
+        # ボタンまで含めて表示されるよう高さを調整
         components.html(html, height=800, scrolling=False)
 
             
