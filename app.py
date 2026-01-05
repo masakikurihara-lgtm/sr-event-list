@@ -76,6 +76,33 @@ table {
 }
 */
 
+/* ===== イベント一覧表専用 ===== */
+.event-summary-table {
+    font-size: 13px;
+}
+
+.event-summary-table th {
+    background: #eef2f7;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.event-summary-table th,
+.event-summary-table td {
+    padding: 8px 10px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.event-summary-table tr:hover {
+    background: #f9fafb;
+}
+
+.event-summary-table td:nth-child(4) {
+    text-align: right;
+    font-weight: 600;
+}
+
 /* ---------- スマホ・タブレット対応 ---------- */
 @media screen and (max-width: 1024px) {
     table {
@@ -575,7 +602,7 @@ def render_event_summary_table(events):
             target = "対象者限定" if e.get("is_entry_scope_inner") else "全ライバー"
             start = datetime.fromtimestamp(e['started_at'], JST).strftime('%Y/%m/%d %H:%M')
             end = datetime.fromtimestamp(e['ended_at'], JST).strftime('%Y/%m/%d %H:%M')
-            total = get_total_entries(e['event_id'])
+            total = e.get("total_entries", "")
 
             rows.append({
                 "name": f'<a href="{event_url}" target="_blank">{e["event_name"]}</a>',
@@ -591,7 +618,7 @@ def render_event_summary_table(events):
 
     html = """
 <div class="table-wrapper" style="max-height:360px; overflow-y:auto;">
-  <table>
+  <table class="event-summary-table">
     <thead>
       <tr style="background:#f3f4f6;">
         <th>イベント名</th>
@@ -1450,7 +1477,12 @@ def main():
             st.success(f"{filtered_count}件のイベントが見つかりました。")
         
         st.markdown("---")
-        render_event_summary_table(filtered_events)
+
+        with st.spinner("イベント一覧を生成中..."):
+            render_event_summary_table(filtered_events)
+
+        st.markdown("---")
+
         # 取得したイベント情報を1つずつ表示
         for event in filtered_events:
             col1, col2 = st.columns([1, 4])
