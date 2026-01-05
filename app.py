@@ -1627,7 +1627,8 @@ def main():
             max-height: 80vh;
             overflow-y: auto;
             border: 1px solid #d1d5db;
-            margin-bottom: 10px; /* テーブルとボタンの距離 */
+            /* 下のボタンとの間に少しだけ余白を作る場合はここ */
+            margin-bottom: 0px; 
         }}
         .summary-table {{
             width: 100%;
@@ -1636,6 +1637,12 @@ def main():
             font-size: 0.85rem; 
             font-family: sans-serif;
         }}
+
+        /* --- 【修正】表の一番下の線がダブるのを防ぐ --- */
+        .summary-table tbody tr:last-child td {{
+            border-bottom: none;
+        }}
+
         .summary-table thead th {{
             background: #f3f4f6;
             text-align: center;
@@ -1665,7 +1672,7 @@ def main():
             border-right: none;
         }}
 
-        /* ダウンロードボタンのスタイル (見た目だけStreamlit風に再現) */
+        /* --- 【修正】ボタンの位置の微調整 --- */
         .dl-link {{
             display: inline-flex;
             align-items: center;
@@ -1677,6 +1684,9 @@ def main():
             text-decoration: none;
             font-size: 0.85rem;
             font-family: sans-serif;
+            
+            /* ここで表との距離を調整します（10px程度が標準的です） */
+            margin-top: 12px; 
         }}
         .dl-link:hover {{
             border-color: #FF4B4B;
