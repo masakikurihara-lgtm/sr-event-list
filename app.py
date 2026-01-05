@@ -1596,12 +1596,34 @@ def main():
 
 
         # ===============================
-        # 一覧表示
+        # 一覧表示 & CSVダウンロード
         # ===============================
         import streamlit.components.v1 as components
+        import pandas as pd
 
         st.markdown("##### 📋 一覧表示")
 
+        # --- 1. CSVダウンロード用データの準備 ---
+        download_data = []
+        for e in filtered_events:
+            download_data.append({
+                "イベント名": e['event_name'],
+                "対象": "対象者限定" if e.get("is_entry_scope_inner") else "全ライバー",
+                "開始": datetime.fromtimestamp(e["started_at"], JST).strftime('%Y/%m/%d %H:%M'),
+                "終了": datetime.fromtimestamp(e["ended_at"], JST).strftime('%Y/%m/%d %H:%M'),
+                "参加ルーム数": get_total_entries(e["event_id"])
+            })
+
+        df_download = pd.DataFrame(download_data)
+
+        @st.cache_data
+        def convert_df(df):
+            # Excelでの文字化け防止のため utf-8-sig
+            return df.to_csv(index=False).encode('utf-8-sig')
+
+        csv_file = convert_df(df_download)
+
+        # --- 2. テーブル表示用のHTML作成 ---
         html = """
         <style>
         .summary-wrapper {
@@ -1613,34 +1635,29 @@ def main():
             width: 100%;
             border-collapse: separate;
             border-spacing: 0;
-            /* テーブル全体のフォントサイズを少し小さくしてスッキリさせる */
             font-size: 0.85rem; 
+            font-family: sans-serif;
         }
         .summary-table thead th {
             background: #f3f4f6;
             text-align: center;
-            padding: 10px 12px; /* 余白を微調整 */
+            padding: 10px 12px;
             border-bottom: 1px solid #d1d5db;
             border-right: 1px solid #d1d5db;
             position: sticky;
             top: 0;
             z-index: 10;
-            /* ヘッダーの文字も折り返さない */
             white-space: nowrap; 
         }
         .summary-table tbody td {
             padding: 8px 12px;
             border-bottom: 1px solid #e5e7eb;
             border-right: 1px solid #e5e7eb;
-            /* ここが重要：セル内の文字を改行させない */
             white-space: nowrap; 
         }
-        /* イベント名など、長いテキストが想定される列だけは 
-           必要に応じて最低限の幅を確保するか、
-           あるいはここだけは折り返しを許可する設定も可能です */
         .summary-table td:first-child {
-            white-space: normal; /* イベント名だけは長すぎる場合を考慮して折り返しを許可 */
-            min-width: 250px;    /* その代わり、狭くなりすぎないよう幅を確保 */
+            white-space: normal;
+            min-width: 250px;
         }
         .summary-table tbody td.col-center {
             text-align: center;
@@ -1682,8 +1699,17 @@ def main():
         </div>
         """
 
-        # heightは表示したいエリアに合わせて調整してください
+        # テーブルを表示
         components.html(html, height=750, scrolling=False)
+
+        # テーブルの直下にダウンロードボタンを配置
+        st.write("") # 少し隙間をあける
+        st.download_button(
+            label="📊 この内容をCSVでダウンロード",
+            data=csv_file,
+            file_name='event_list.csv',
+            mime='text/csv',
+        )
 
             
 
