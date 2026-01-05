@@ -560,7 +560,6 @@ def get_event_participants(event, limit=10):
 
 
 def render_event_summary_table(events):
-    st.info(f"一覧表用イベント数: {len(events)}")
     """
     フィルタ後イベントを一覧表（HTML）で表示する
     ※ 表示専用・既存ロジックには一切影響しない
@@ -584,17 +583,12 @@ def render_event_summary_table(events):
                 "total": total
             })
         except Exception:
-            rows.append({
-                "name": e.get("event_name", ""),
-                "target": "",
-                "period": "",
-                "total": ""
-            })
+            continue
 
     if not rows:
         return
 
-html = """
+    html = """
 <div class="table-wrapper" style="max-height:360px; overflow-y:auto;">
   <table>
     <thead>
@@ -610,19 +604,19 @@ html = """
 
     for r in rows:
         html += f"""
-        <tr>
-          <td>{r['name']}</td>
-          <td style="text-align:center;">{r['target']}</td>
-          <td>{r['period']}</td>
-          <td style="text-align:right;">{r['total']}</td>
-        </tr>
-        """
+      <tr>
+        <td>{r['name']}</td>
+        <td style="text-align:center;">{r['target']}</td>
+        <td>{r['period']}</td>
+        <td style="text-align:right;">{r['total']}</td>
+      </tr>
+"""
 
     html += """
-        </tbody>
-      </table>
-    </div>
-    """
+    </tbody>
+  </table>
+</div>
+"""
 
     st.markdown("### 📋 イベント一覧（概要）")
     st.markdown(html, unsafe_allow_html=True)
