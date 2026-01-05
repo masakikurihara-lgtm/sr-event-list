@@ -1654,47 +1654,46 @@ def main():
 
         df_summary = _pd.DataFrame(summary_rows)
 
-        st.markdown(
-            "<h4 style='text-align:center;'>📋 一覧表示</h4>",
-            unsafe_allow_html=True
-        )
+        from textwrap import dedent
 
-        html_table = """
-<div class="summary-wrapper">
-<table class="summary-table">
-    <thead>
+        st.markdown("##### 📋 一覧表示")
+
+        html = dedent("""
+        <div class="summary-wrapper">
+        <table class="summary-table">
+        <thead>
         <tr>
-            <th>イベント名</th>
-            <th>対象</th>
-            <th>開始</th>
-            <th>終了</th>
-            <th>参加ルーム数</th>
+        <th>イベント名</th>
+        <th>対象</th>
+        <th>開始</th>
+        <th>終了</th>
+        <th>参加ルーム数</th>
         </tr>
-    </thead>
-    <tbody>
-"""
+        </thead>
+        <tbody>
+        """)
 
-        for _, row in df_summary.iterrows():
-            html_table += f"""
+        for _, r in df_summary.iterrows():
+            html += f"""
         <tr>
-            <td>{row['イベント名']}</td>
-            <td class="col-center">{row['対象']}</td>
-            <td class="col-center">{row['開始']}</td>
-            <td class="col-center">{row['終了']}</td>
-            <td class="col-center">{row['参加ルーム数']}</td>
+        <td>{r['イベント名']}</td>
+        <td class="col-center">{r['対象']}</td>
+        <td class="col-center">{r['開始']}</td>
+        <td class="col-center">{r['終了']}</td>
+        <td class="col-center">{r['参加ルーム数']}</td>
         </tr>
-"""
+        """
 
-        html_table += """
-    </tbody>
-</table>
-</div>
-"""
+        html += dedent("""
+        </tbody>
+        </table>
+        </div>
+        """)
 
-        st.markdown(html_table, unsafe_allow_html=True)
+        st.markdown(html, unsafe_allow_html=True)
+
+
         st.markdown("---")
-
-
             
 
 if __name__ == "__main__":
