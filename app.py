@@ -1607,44 +1607,47 @@ def main():
         .summary-wrapper {
             max-height: 80vh;
             overflow-y: auto;
-            border: 1px solid #d1d5db; /* 外枠を追加 */
+            border: 1px solid #d1d5db;
         }
         .summary-table {
             width: 100%;
-            border-collapse: separate; /* stickyを効かせるため collapse ではなく separate に */
-            border-spacing: 0;        /* 隙間を詰める */
+            border-collapse: separate;
+            border-spacing: 0;
+            /* テーブル全体のフォントサイズを少し小さくしてスッキリさせる */
+            font-size: 0.85rem; 
         }
         .summary-table thead th {
             background: #f3f4f6;
             text-align: center;
-            padding: 8px;
+            padding: 10px 12px; /* 余白を微調整 */
             border-bottom: 1px solid #d1d5db;
-            border-right: 1px solid #d1d5db; /* 縦のボーダー */
-            /* ヘッダー固定の設定 */
+            border-right: 1px solid #d1d5db;
             position: sticky;
             top: 0;
             z-index: 10;
-        }
-        /* 最後の列の右ボーダーを消す（お好みで） */
-        .summary-table thead th:last-child,
-        .summary-table tbody td:last-child {
-            border-right: none;
+            /* ヘッダーの文字も折り返さない */
+            white-space: nowrap; 
         }
         .summary-table tbody td {
-            padding: 8px;
+            padding: 8px 12px;
             border-bottom: 1px solid #e5e7eb;
-            border-right: 1px solid #e5e7eb; /* 縦のボーダー */
+            border-right: 1px solid #e5e7eb;
+            /* ここが重要：セル内の文字を改行させない */
+            white-space: nowrap; 
+        }
+        /* イベント名など、長いテキストが想定される列だけは 
+           必要に応じて最低限の幅を確保するか、
+           あるいはここだけは折り返しを許可する設定も可能です */
+        .summary-table td:first-child {
+            white-space: normal; /* イベント名だけは長すぎる場合を考慮して折り返しを許可 */
+            min-width: 250px;    /* その代わり、狭くなりすぎないよう幅を確保 */
         }
         .summary-table tbody td.col-center {
             text-align: center;
         }
-        /* リンクの色調整（任意） */
-        .summary-table a {
-            color: #1f67d2;
-            text-decoration: none;
-        }
-        .summary-table a:hover {
-            text-decoration: underline;
+        .summary-table thead th:last-child,
+        .summary-table tbody td:last-child {
+            border-right: none;
         }
         </style>
 
