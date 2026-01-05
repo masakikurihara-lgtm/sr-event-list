@@ -1660,39 +1660,40 @@ def main():
         )
 
         html_table = """
-        <div class="summary-wrapper">
-        <table class="summary-table">
-            <thead>
-                <tr>
-                    <th>イベント名</th>
-                    <th>対象</th>
-                    <th>開始</th>
-                    <th>終了</th>
-                    <th>参加ルーム数</th>
-                </tr>
-            </thead>
-            <tbody>
-        """
+<div class="summary-wrapper">
+<table class="summary-table">
+    <thead>
+        <tr>
+            <th>イベント名</th>
+            <th>対象</th>
+            <th>開始</th>
+            <th>終了</th>
+            <th>参加ルーム数</th>
+        </tr>
+    </thead>
+    <tbody>
+"""
 
         for _, row in df_summary.iterrows():
             html_table += f"""
-                <tr>
-                    <td>{row['イベント名']}</td>
-                    <td class="col-center">{row['対象']}</td>
-                    <td class="col-center">{row['開始']}</td>
-                    <td class="col-center">{row['終了']}</td>
-                    <td class="col-center">{row['参加ルーム数']}</td>
-                </tr>
-            """
+        <tr>
+            <td>{row['イベント名']}</td>
+            <td class="col-center">{row['対象']}</td>
+            <td class="col-center">{row['開始']}</td>
+            <td class="col-center">{row['終了']}</td>
+            <td class="col-center">{row['参加ルーム数']}</td>
+        </tr>
+"""
 
         html_table += """
-            </tbody>
-        </table>
-        </div>
-        """
+    </tbody>
+</table>
+</div>
+"""
 
         st.markdown(html_table, unsafe_allow_html=True)
         st.markdown("---")
+
 
             
 
