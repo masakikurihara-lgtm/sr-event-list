@@ -594,19 +594,19 @@ def render_event_summary_table(events):
     if not rows:
         return
 
-    html = """
-    <div class="table-wrapper" style="max-height:360px; overflow-y:auto;">
-      <table>
-        <thead>
-          <tr style="background:#f3f4f6;">
-            <th>イベント名</th>
-            <th>対象</th>
-            <th>期間</th>
-            <th>参加ルーム数</th>
-          </tr>
-        </thead>
-        <tbody>
-    """
+html = """
+<div class="table-wrapper" style="max-height:360px; overflow-y:auto;">
+  <table>
+    <thead>
+      <tr style="background:#f3f4f6;">
+        <th>イベント名</th>
+        <th>対象</th>
+        <th>期間</th>
+        <th>参加ルーム数</th>
+      </tr>
+    </thead>
+    <tbody>
+"""
 
     for r in rows:
         html += f"""
