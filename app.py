@@ -1640,27 +1640,73 @@ def main():
         # ===============================
         # 一覧表示
         # ===============================
-        import pandas as _pd
+        import streamlit.components.v1 as components
 
-        summary_rows = []
-        for e in filtered_events:
-            summary_rows.append({
-                "イベント名": f'<a href="{EVENT_PAGE_BASE_URL}{e["event_url_key"]}" target="_blank">{e["event_name"]}</a>',
-                "対象": "対象者限定" if e.get("is_entry_scope_inner") else "全ライバー",
-                "開始": datetime.fromtimestamp(e["started_at"], JST).strftime('%Y/%m/%d %H:%M'),
-                "終了": datetime.fromtimestamp(e["ended_at"], JST).strftime('%Y/%m/%d %H:%M'),
-                "参加ルーム数": get_total_entries(e["event_id"])
-            })
-
-        df_summary = _pd.DataFrame(summary_rows)
-
+        # ---------------------------
+        # 一覧表示
+        # ---------------------------
         st.markdown("##### 📋 一覧表示")
-        st.write(
-            df_summary.to_html(escape=False, index=False),
-            unsafe_allow_html=True
-        )
 
-        st.markdown("---")
+        html = """
+        <style>
+        .summary-wrapper {
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .summary-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .summary-table thead th {
+            background: #f3f4f6;
+            text-align: center;
+            padding: 8px;
+            border-bottom: 1px solid #d1d5db;
+        }
+        .summary-table tbody td {
+            padding: 8px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .summary-table tbody td.col-center {
+            text-align: center;
+        }
+        </style>
+
+        <div class="summary-wrapper">
+        <table class="summary-table">
+        <thead>
+        <tr>
+          <th>イベント名</th>
+          <th>対象</th>
+          <th>開始</th>
+          <th>終了</th>
+          <th>参加ルーム数</th>
+        </tr>
+        </thead>
+        <tbody>
+        """
+
+        for e in filtered_events:
+            html += f"""
+        <tr>
+          <td><a href="{EVENT_PAGE_BASE_URL}{e['event_url_key']}" target="_blank">{e['event_name']}</a></td>
+          <td class="col-center">{"対象者限定" if e.get("is_entry_scope_inner") else "全ライバー"}</td>
+          <td class="col-center">{datetime.fromtimestamp(e["started_at"], JST).strftime('%Y/%m/%d %H:%M')}</td>
+          <td class="col-center">{datetime.fromtimestamp(e["ended_at"], JST).strftime('%Y/%m/%d %H:%M')}</td>
+          <td class="col-center">{get_total_entries(e["event_id"])}</td>
+        </tr>
+        """
+
+        html += """
+        </tbody>
+        </table>
+        </div>
+        """
+
+        # ここがポイント！
+        # unsafe_allow_html ではなく components.v1.html で描画
+        components.html(html, height=400, scrolling=True)
+
             
 
 if __name__ == "__main__":
