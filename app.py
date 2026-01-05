@@ -1607,7 +1607,7 @@ def main():
 
             /* ===== 一覧テーブル用 ===== */
             .summary-wrapper {
-                max-height: 80vh;       /* 画面高さの80% */
+                max-height: 70vh;       /* 画面高さの70% */
                 overflow-y: auto;
             }
 
@@ -1638,60 +1638,29 @@ def main():
 
 
         # ===============================
-        # 一覧表示（HTML固定レイアウト）
+        # 一覧表示
         # ===============================
-        from textwrap import dedent
+        import pandas as _pd
+
+        summary_rows = []
+        for e in filtered_events:
+            summary_rows.append({
+                "イベント名": f'<a href="{EVENT_PAGE_BASE_URL}{e["event_url_key"]}" target="_blank">{e["event_name"]}</a>',
+                "対象": "対象者限定" if e.get("is_entry_scope_inner") else "全ライバー",
+                "開始": datetime.fromtimestamp(e["started_at"], JST).strftime('%Y/%m/%d %H:%M'),
+                "終了": datetime.fromtimestamp(e["ended_at"], JST).strftime('%Y/%m/%d %H:%M'),
+                "参加ルーム数": get_total_entries(e["event_id"])
+            })
+
+        df_summary = _pd.DataFrame(summary_rows)
 
         st.markdown("##### 📋 一覧表示")
-
-        html = dedent("""
-        <div class="summary-wrapper">
-        <table class="summary-table">
-        <thead>
-        <tr>
-          <th>イベント名</th>
-          <th>対象</th>
-          <th>開始</th>
-          <th>終了</th>
-          <th>参加ルーム数</th>
-        </tr>
-        </thead>
-        <tbody>
-        """)
-
-        for e in filtered_events:
-            html += f"""
-            <tr>
-              <td>
-                <a href="{EVENT_PAGE_BASE_URL}{e['event_url_key']}" target="_blank">
-                  {e['event_name']}
-                </a>
-              </td>
-              <td class="col-center">
-                {"対象者限定" if e.get("is_entry_scope_inner") else "全ライバー"}
-              </td>
-              <td class="col-center">
-                {datetime.fromtimestamp(e["started_at"], JST).strftime('%Y/%m/%d %H:%M')}
-              </td>
-              <td class="col-center">
-                {datetime.fromtimestamp(e["ended_at"], JST).strftime('%Y/%m/%d %H:%M')}
-              </td>
-              <td class="col-center">
-                {get_total_entries(e["event_id"])}
-              </td>
-            </tr>
-            """
-
-        html += dedent("""
-        </tbody>
-        </table>
-        </div>
-        """)
-
-        st.markdown(html, unsafe_allow_html=True)
+        st.write(
+            df_summary.to_html(escape=False, index=False),
+            unsafe_allow_html=True
+        )
 
         st.markdown("---")
-
             
 
 if __name__ == "__main__":
