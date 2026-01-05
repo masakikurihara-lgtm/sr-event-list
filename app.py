@@ -1660,7 +1660,7 @@ def main():
 
         # ここがポイント！
         # unsafe_allow_html ではなく components.v1.html で描画
-        components.html(html, height=600, scrolling=True)
+        components.html(html, height=750, scrolling=True)
 
             
 
