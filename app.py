@@ -1491,13 +1491,10 @@ def main():
         
         st.markdown("---")
 
-        with st.spinner("イベント一覧を生成中..."):
-            for e in filtered_events:
-                if "total_entries" not in e:
-                    e["total_entries"] = get_total_entries(e["event_id"])
-            render_event_summary_table(filtered_events)
-
-        st.markdown("---")
+        # with st.spinner("イベント一覧を生成中..."):
+        # render_event_summary_table(filtered_events)
+        #
+        # st.markdown("---")
 
         # 取得したイベント情報を1つずつ表示
         for event in filtered_events:
