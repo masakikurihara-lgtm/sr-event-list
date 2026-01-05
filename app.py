@@ -1600,10 +1600,11 @@ def main():
         # ===============================
         import streamlit.components.v1 as components
         import pandas as pd
+        import base64
 
         st.markdown("##### 📋 一覧表示")
 
-        # --- 1. CSVダウンロード用データの準備 ---
+        # --- 1. CSVデータの生成 ---
         download_data = []
         for e in filtered_events:
             download_data.append({
@@ -1615,30 +1616,28 @@ def main():
             })
 
         df_download = pd.DataFrame(download_data)
+        # Excel対策のBOM付きUTF-8
+        csv_str = df_download.to_csv(index=False, encoding='utf-8-sig')
+        # HTML内で扱えるようにBase64エンコード
+        b64_csv = base64.b64encode(csv_str.encode()).decode()
 
-        @st.cache_data
-        def convert_df(df):
-            # Excelでの文字化け防止のため utf-8-sig
-            return df.to_csv(index=False).encode('utf-8-sig')
-
-        csv_file = convert_df(df_download)
-
-        # --- 2. テーブル表示用のHTML作成 ---
-        html = """
+        # --- 2. HTMLの作成 (ボタンを中に含める) ---
+        html = f"""
         <style>
-        .summary-wrapper {
+        .summary-wrapper {{
             max-height: 80vh;
             overflow-y: auto;
             border: 1px solid #d1d5db;
-        }
-        .summary-table {
+            margin-bottom: 8px; /* 下のボタンとの隙間を最小限に */
+        }}
+        .summary-table {{
             width: 100%;
             border-collapse: separate;
             border-spacing: 0;
             font-size: 0.85rem; 
             font-family: sans-serif;
-        }
-        .summary-table thead th {
+        }}
+        .summary-table thead th {{
             background: #f3f4f6;
             text-align: center;
             padding: 10px 12px;
@@ -1648,68 +1647,84 @@ def main():
             top: 0;
             z-index: 10;
             white-space: nowrap; 
-        }
-        .summary-table tbody td {
+        }}
+        .summary-table tbody td {{
             padding: 8px 12px;
             border-bottom: 1px solid #e5e7eb;
             border-right: 1px solid #e5e7eb;
             white-space: nowrap; 
-        }
-        .summary-table td:first-child {
+        }}
+        .summary-table td:first-child {{
             white-space: normal;
             min-width: 250px;
-        }
-        .summary-table tbody td.col-center {
+        }}
+        .summary-table tbody td.col-center {{
             text-align: center;
-        }
+        }}
         .summary-table thead th:last-child,
-        .summary-table tbody td:last-child {
+        .summary-table tbody td:last-child {{
             border-right: none;
-        }
+        }}
+
+        /* ダウンロードボタンのスタイル（Streamlit風） */
+        .dl-btn {{
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.25rem 0.75rem;
+            border-radius: 0.5rem;
+            margin: 0;
+            line-height: 1.6;
+            color: #31333F;
+            background-color: #FFFFFF;
+            border: 1px solid #d1d5db;
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-family: sans-serif;
+            cursor: pointer;
+        }}
+        .dl-btn:hover {{
+            border-color: #FF4B4B;
+            color: #FF4B4B;
+        }}
         </style>
 
         <div class="summary-wrapper">
-        <table class="summary-table">
-        <thead>
-        <tr>
-          <th>イベント名</th>
-          <th>対象</th>
-          <th>開始</th>
-          <th>終了</th>
-          <th>参加ルーム数</th>
-        </tr>
-        </thead>
-        <tbody>
+            <table class="summary-table">
+                <thead>
+                    <tr>
+                      <th>イベント名</th>
+                      <th>対象</th>
+                      <th>開始</th>
+                      <th>終了</th>
+                      <th>参加ルーム数</th>
+                    </tr>
+                </thead>
+                <tbody>
         """
 
         for e in filtered_events:
             html += f"""
-        <tr>
-          <td><a href="{EVENT_PAGE_BASE_URL}{e['event_url_key']}" target="_blank">{e['event_name']}</a></td>
-          <td class="col-center">{"対象者限定" if e.get("is_entry_scope_inner") else "全ライバー"}</td>
-          <td class="col-center">{datetime.fromtimestamp(e["started_at"], JST).strftime('%Y/%m/%d %H:%M')}</td>
-          <td class="col-center">{datetime.fromtimestamp(e["ended_at"], JST).strftime('%Y/%m/%d %H:%M')}</td>
-          <td class="col-center">{get_total_entries(e["event_id"])}</td>
-        </tr>
-        """
+                <tr>
+                  <td><a href="{EVENT_PAGE_BASE_URL}{e['event_url_key']}" target="_blank">{e['event_name']}</a></td>
+                  <td class="col-center">{"対象者限定" if e.get("is_entry_scope_inner") else "全ライバー"}</td>
+                  <td class="col-center">{datetime.fromtimestamp(e["started_at"], JST).strftime('%Y/%m/%d %H:%M')}</td>
+                  <td class="col-center">{datetime.fromtimestamp(e["ended_at"], JST).strftime('%Y/%m/%d %H:%M')}</td>
+                  <td class="col-center">{get_total_entries(e["event_id"])}</td>
+                </tr>
+            """
 
-        html += """
-        </tbody>
-        </table>
+        html += f"""
+                </tbody>
+            </table>
         </div>
+        <a class="dl-btn" href="data:text/csv;base64,{b64_csv}" download="event_list.csv">
+            📊 この内容をCSVでダウンロード
+        </a>
         """
 
-        # テーブルを表示
-        components.html(html, height=750, scrolling=False)
-
-        # テーブルの直下にダウンロードボタンを配置
-        st.write("") # 少し隙間をあける
-        st.download_button(
-            label="📊 この内容をCSVでダウンロード",
-            data=csv_file,
-            file_name='event_list.csv',
-            mime='text/csv',
-        )
+        # heightをボタン含めて収まるように少し調整 (750 -> 800)
+        components.html(html, height=800, scrolling=False)
 
             
 
