@@ -1456,12 +1456,37 @@ def main():
         
         st.markdown("---")
 
+
+        # ===============================
+        # 上段：イベント一覧（画像なし）
+        # ===============================
+        import pandas as _pd
+
+        summary_rows = []
+        for e in filtered_events:
+            summary_rows.append({
+                "イベント名": f'<a href="{EVENT_PAGE_BASE_URL}{e["event_url_key"]}" target="_blank">{e["event_name"]}</a>',
+                "対象": "対象者限定" if e.get("is_entry_scope_inner") else "全ライバー",
+                "開始": datetime.fromtimestamp(e["started_at"], JST).strftime('%Y/%m/%d %H:%M'),
+                "終了": datetime.fromtimestamp(e["ended_at"], JST).strftime('%Y/%m/%d %H:%M'),
+                "参加ルーム数": get_total_entries(e["event_id"])
+            })
+
+        df_summary = _pd.DataFrame(summary_rows)
+
+        st.markdown("### 📋 イベント一覧（画像なし）")
+        st.write(
+            df_summary.to_html(escape=False, index=False),
+            unsafe_allow_html=True
+        )
+
+        st.markdown("---")
+
+
         # with st.spinner("イベント一覧を生成中..."):
         # render_event_summary_table(filtered_events)
         #
         # st.markdown("---")
-
-        summary_events = filtered_events
 
         # 取得したイベント情報を1つずつ表示
         for event in filtered_events:
