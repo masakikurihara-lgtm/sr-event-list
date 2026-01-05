@@ -1595,56 +1595,11 @@ def main():
             st.markdown("---")
 
 
-        st.markdown(
-            """
-            <style>
-            /* イベント詳細の行間を詰める */
-            .event-info p, .event-info li, .event-info {
-                line-height: 1.7;
-                margin-top: 0.0rem;
-                margin-bottom: 0.4rem;
-            }
-
-            /* ===== 一覧テーブル用 ===== */
-            .summary-wrapper {
-                max-height: 70vh;       /* 画面高さの70% */
-                overflow-y: auto;
-            }
-
-            table.summary-table {
-                width: 100%;
-                border-collapse: collapse;
-            }
-
-            table.summary-table thead th {
-                background: #f3f4f6;    /* ヘッダー背景色 */
-                text-align: center;     /* 見出し中央 */
-                padding: 8px;
-                border-bottom: 1px solid #d1d5db;
-            }
-
-            table.summary-table tbody td {
-                padding: 8px;
-                border-bottom: 1px solid #e5e7eb;
-            }
-
-            table.summary-table tbody td.col-center {
-                text-align: center;
-            }
-            </style>
-            """,
-            unsafe_allow_html=True
-        )
-
-
         # ===============================
         # 一覧表示
         # ===============================
         import streamlit.components.v1 as components
 
-        # ---------------------------
-        # 一覧表示
-        # ---------------------------
         st.markdown("##### 📋 一覧表示")
 
         html = """
@@ -1705,7 +1660,7 @@ def main():
 
         # ここがポイント！
         # unsafe_allow_html ではなく components.v1.html で描画
-        components.html(html, height=400, scrolling=True)
+        components.html(html, height=600, scrolling=True)
 
             
 
