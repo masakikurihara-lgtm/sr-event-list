@@ -1595,6 +1595,48 @@ def main():
             st.markdown("---")
 
 
+        st.markdown(
+            """
+            <style>
+            /* イベント詳細の行間を詰める */
+            .event-info p, .event-info li, .event-info {
+                line-height: 1.7;
+                margin-top: 0.0rem;
+                margin-bottom: 0.4rem;
+            }
+
+            /* ===== 一覧テーブル用 ===== */
+            .summary-wrapper {
+                max-height: 80vh;       /* 画面高さの80% */
+                overflow-y: auto;
+            }
+
+            table.summary-table {
+                width: 100%;
+                border-collapse: collapse;
+            }
+
+            table.summary-table thead th {
+                background: #f3f4f6;    /* ヘッダー背景色 */
+                text-align: center;     /* 見出し中央 */
+                padding: 8px;
+                border-bottom: 1px solid #d1d5db;
+            }
+
+            table.summary-table tbody td {
+                padding: 8px;
+                border-bottom: 1px solid #e5e7eb;
+            }
+
+            table.summary-table tbody td.col-center {
+                text-align: center;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True
+        )
+
+
         # ===============================
         # 一覧表示
         # ===============================
@@ -1612,13 +1654,46 @@ def main():
 
         df_summary = _pd.DataFrame(summary_rows)
 
-        st.markdown("##### 📋 一覧表示")
-        st.write(
-            df_summary.to_html(escape=False, index=False),
+        st.markdown(
+            "<h4 style='text-align:center;'>📋 一覧表示</h4>",
             unsafe_allow_html=True
         )
 
+        html_table = """
+        <div class="summary-wrapper">
+        <table class="summary-table">
+            <thead>
+                <tr>
+                    <th>イベント名</th>
+                    <th>対象</th>
+                    <th>開始</th>
+                    <th>終了</th>
+                    <th>参加ルーム数</th>
+                </tr>
+            </thead>
+            <tbody>
+        """
+
+        for _, row in df_summary.iterrows():
+            html_table += f"""
+                <tr>
+                    <td>{row['イベント名']}</td>
+                    <td class="col-center">{row['対象']}</td>
+                    <td class="col-center">{row['開始']}</td>
+                    <td class="col-center">{row['終了']}</td>
+                    <td class="col-center">{row['参加ルーム数']}</td>
+                </tr>
+            """
+
+        html_table += """
+            </tbody>
+        </table>
+        </div>
+        """
+
+        st.markdown(html_table, unsafe_allow_html=True)
         st.markdown("---")
+
             
 
 if __name__ == "__main__":
