@@ -560,6 +560,7 @@ def get_event_participants(event, limit=10):
 
 
 def render_event_summary_table(events):
+    st.info(f"一覧表用イベント数: {len(events)}")
     """
     フィルタ後イベントを一覧表（HTML）で表示する
     ※ 表示専用・既存ロジックには一切影響しない
@@ -583,7 +584,12 @@ def render_event_summary_table(events):
                 "total": total
             })
         except Exception:
-            continue
+            rows.append({
+                "name": e.get("event_name", ""),
+                "target": "",
+                "period": "",
+                "total": ""
+            })
 
     if not rows:
         return
