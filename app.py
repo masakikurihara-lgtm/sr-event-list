@@ -1607,23 +1607,44 @@ def main():
         .summary-wrapper {
             max-height: 80vh;
             overflow-y: auto;
+            border: 1px solid #d1d5db; /* 外枠を追加 */
         }
         .summary-table {
             width: 100%;
-            border-collapse: collapse;
+            border-collapse: separate; /* stickyを効かせるため collapse ではなく separate に */
+            border-spacing: 0;        /* 隙間を詰める */
         }
         .summary-table thead th {
             background: #f3f4f6;
             text-align: center;
             padding: 8px;
             border-bottom: 1px solid #d1d5db;
+            border-right: 1px solid #d1d5db; /* 縦のボーダー */
+            /* ヘッダー固定の設定 */
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        /* 最後の列の右ボーダーを消す（お好みで） */
+        .summary-table thead th:last-child,
+        .summary-table tbody td:last-child {
+            border-right: none;
         }
         .summary-table tbody td {
             padding: 8px;
             border-bottom: 1px solid #e5e7eb;
+            border-right: 1px solid #e5e7eb; /* 縦のボーダー */
         }
         .summary-table tbody td.col-center {
             text-align: center;
+        }
+        /* リンクの色調整（任意） */
+        .summary-table a {
+            color: #1f67d2;
+            text-decoration: none;
+        }
+        .summary-table a:hover {
+            text-decoration: underline;
         }
         </style>
 
@@ -1658,9 +1679,8 @@ def main():
         </div>
         """
 
-        # ここがポイント！
-        # unsafe_allow_html ではなく components.v1.html で描画
-        components.html(html, height=750, scrolling=True)
+        # heightは表示したいエリアに合わせて調整してください
+        components.html(html, height=750, scrolling=False)
 
             
 
