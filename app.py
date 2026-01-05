@@ -595,10 +595,6 @@ def get_event_participants(event, limit=10):
 
 
 def render_event_summary_table(events):
-    """
-    フィルタ後イベントを一覧表（HTML）で表示する
-    ※ 表示専用・既存ロジックには一切影響しない
-    """
     if not events:
         return
 
@@ -609,13 +605,12 @@ def render_event_summary_table(events):
             target = "対象者限定" if e.get("is_entry_scope_inner") else "全ライバー"
             start = datetime.fromtimestamp(e['started_at'], JST).strftime('%Y/%m/%d %H:%M')
             end = datetime.fromtimestamp(e['ended_at'], JST).strftime('%Y/%m/%d %H:%M')
-            total = e.get("total_entries", "")
 
             rows.append({
-                "name": f'<a href="{event_url}" target="_blank">{e["event_name"]}</a>',
-                "target": target,
-                "period": f"{start} - {end}",
-                "total": total
+                "イベント名": f"[{e['event_name']}]({event_url})",
+                "対象": target,
+                "期間": f"{start} - {end}",
+                "参加ルーム数": e.get("total_entries", "")
             })
         except Exception:
             continue
@@ -623,44 +618,14 @@ def render_event_summary_table(events):
     if not rows:
         return
 
-    html = """
-<div class="table-wrapper" style="max-height:360px; overflow-y:auto;">
-  <table class="event-summary-table">
-    <colgroup>
-      <col style="width:52%;">
-      <col style="width:12%;">
-      <col style="width:26%;">
-      <col style="width:10%;">
-    </colgroup>
-    <thead>
-      <tr style="background:#f3f4f6;">
-        <th>イベント名</th>
-        <th>対象</th>
-        <th>期間</th>
-        <th>参加ルーム数</th>
-      </tr>
-    </thead>
-    <tbody>
-"""
-
-    for r in rows:
-        html += f"""
-      <tr>
-        <td>{r['name']}</td>
-        <td style="text-align:center;">{r['target']}</td>
-        <td>{r['period']}</td>
-        <td style="text-align:right;">{r['total']}</td>
-      </tr>
-"""
-
-    html += """
-    </tbody>
-  </table>
-</div>
-"""
+    df = pd.DataFrame(rows)
 
     st.markdown("### 📋 イベント一覧（概要）")
-    components.html(html, height=420, scrolling=True)
+    st.dataframe(
+        df,
+        use_container_width=True,
+        height=360
+    )
 
 
 
@@ -1495,6 +1460,8 @@ def main():
         # render_event_summary_table(filtered_events)
         #
         # st.markdown("---")
+
+        summary_events = filtered_events
 
         # 取得したイベント情報を1つずつ表示
         for event in filtered_events:
