@@ -8,6 +8,7 @@ import io
 import re
 import ftplib  # ✅ FTPアップロード機能用
 import concurrent.futures
+import streamlit.components.v1 as components
 
 
 # 日本時間(JST)のタイムゾーンを設定
@@ -619,7 +620,7 @@ def render_event_summary_table(events):
 """
 
     st.markdown("### 📋 イベント一覧（概要）")
-    st.markdown(html, unsafe_allow_html=True)
+    components.html(html, height=420, scrolling=True)
 
 
 
