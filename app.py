@@ -78,14 +78,16 @@ table {
 
 /* ===== イベント一覧表専用 ===== */
 .event-summary-table {
-    font-size: 13px;
+    font-size: 12px;
+    table-layout: fixed;
 }
 
 .event-summary-table th {
-    background: #eef2f7;
     position: sticky;
     top: 0;
-    z-index: 1;
+    background: #eef2f7;
+    z-index: 2;
+    text-align: center;
 }
 
 .event-summary-table th,
@@ -102,6 +104,11 @@ table {
     text-align: right;
     font-weight: 600;
 }
+
+.event-summary-table td:nth-child(1) {
+    word-break: break-word;
+}
+
 
 /* ---------- スマホ・タブレット対応 ---------- */
 @media screen and (max-width: 1024px) {
@@ -619,6 +626,12 @@ def render_event_summary_table(events):
     html = """
 <div class="table-wrapper" style="max-height:360px; overflow-y:auto;">
   <table class="event-summary-table">
+    <colgroup>
+      <col style="width:52%;">
+      <col style="width:12%;">
+      <col style="width:26%;">
+      <col style="width:10%;">
+    </colgroup>
     <thead>
       <tr style="background:#f3f4f6;">
         <th>イベント名</th>
@@ -1479,6 +1492,9 @@ def main():
         st.markdown("---")
 
         with st.spinner("イベント一覧を生成中..."):
+            for e in filtered_events:
+                if "total_entries" not in e:
+                    e["total_entries"] = get_total_entries(e["event_id"])
             render_event_summary_table(filtered_events)
 
         st.markdown("---")
