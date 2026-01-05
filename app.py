@@ -76,40 +76,6 @@ table {
 }
 */
 
-/* ===== イベント一覧表専用 ===== */
-.event-summary-table {
-    font-size: 12px;
-    table-layout: fixed;
-}
-
-.event-summary-table th {
-    position: sticky;
-    top: 0;
-    background: #eef2f7;
-    z-index: 2;
-    text-align: center;
-}
-
-.event-summary-table th,
-.event-summary-table td {
-    padding: 8px 10px;
-    border-bottom: 1px solid #e5e7eb;
-}
-
-.event-summary-table tr:hover {
-    background: #f9fafb;
-}
-
-.event-summary-table td:nth-child(4) {
-    text-align: right;
-    font-weight: 600;
-}
-
-.event-summary-table td:nth-child(1) {
-    word-break: break-word;
-}
-
-
 /* ---------- スマホ・タブレット対応 ---------- */
 @media screen and (max-width: 1024px) {
     table {
@@ -591,41 +557,6 @@ def get_event_participants(event, limit=10):
         p["point"] = rp.get("point", 0)
 
     return top
-
-
-
-def render_event_summary_table(events):
-    if not events:
-        return
-
-    rows = []
-    for e in events:
-        try:
-            event_url = f"{EVENT_PAGE_BASE_URL}{e['event_url_key']}"
-            target = "対象者限定" if e.get("is_entry_scope_inner") else "全ライバー"
-            start = datetime.fromtimestamp(e['started_at'], JST).strftime('%Y/%m/%d %H:%M')
-            end = datetime.fromtimestamp(e['ended_at'], JST).strftime('%Y/%m/%d %H:%M')
-
-            rows.append({
-                "イベント名": f"[{e['event_name']}]({event_url})",
-                "対象": target,
-                "期間": f"{start} - {end}",
-                "参加ルーム数": e.get("total_entries", "")
-            })
-        except Exception:
-            continue
-
-    if not rows:
-        return
-
-    df = pd.DataFrame(rows)
-
-    st.markdown("### 📋 イベント一覧（概要）")
-    st.dataframe(
-        df,
-        use_container_width=True,
-        height=360
-    )
 
 
 
@@ -1681,7 +1612,7 @@ def main():
 
         df_summary = _pd.DataFrame(summary_rows)
 
-        st.markdown("### 📋 イベント一覧（画像なし）")
+        st.markdown("##### 📋 一覧表示")
         st.write(
             df_summary.to_html(escape=False, index=False),
             unsafe_allow_html=True
