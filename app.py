@@ -1032,7 +1032,9 @@ def main():
                     try:
                         response = requests.get(ROOM_LIST_URL, timeout=5)
                         response.raise_for_status()
-                        room_df = pd.read_csv(io.StringIO(response.text), header=None)
+                        # room_df = pd.read_csv(io.StringIO(response.text), header=None)
+                        import pandas # 念のためこの行の直前か、ファイル冒頭に入れておく
+                        room_df = pandas.read_csv(io.StringIO(response.text), header=None)
     
                         valid_codes = set(str(x).strip() for x in room_df.iloc[:, 0].dropna())
     
