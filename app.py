@@ -1005,6 +1005,9 @@ def main():
 
 
     # ▼▼ 認証ステップ ▼▼
+    if "authenticated" not in st.session_state:
+        st.session_state.authenticated = False
+
     if "mksp_authenticated" not in st.session_state:
         st.session_state.mksp_authenticated = False
         
