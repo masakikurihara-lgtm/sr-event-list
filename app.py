@@ -1118,23 +1118,29 @@ def main():
     # 🚀【修正】ベースとなるステータスが1つでもONになっているか判定
     any_status_selected = use_on_going or use_upcoming or use_finished or use_past_bu
 
-    # 🚀【バグ修正】非活性化と活性化のコードを統合し、同じkeyで状態を完全に管理します
+    # 🚀【根本解決】ベースのチェックがすべて外れたら、セッション状態を直接 False に強制リセットする
     if not any_status_selected:
+        st.session_state["mksoul_active_checkbox"] = False
+        
         use_mksoul_only = st.sidebar.checkbox(
             "MKsoul主催", 
             value=False, 
             disabled=True, 
-            key="mksoul_active_checkbox", # 👈 キーを統一してゴースト現象を完全に防止
+            key="mksoul_active_checkbox",
             help="表示するステータス（開催中など）を先に選択してください"
         )
     else:
+        # ステータスが選択されている時だけ通常通り活性化
         use_mksoul_only = st.sidebar.checkbox(
             "MKsoul主催", 
-            value=False, 
+            # valueは指定せず、Streamlitのキー管理（セッション）に完全に任せることで同期のズレを防ぎます
             disabled=False,
-            key="mksoul_active_checkbox", # 👈 同一のキーで活性化状態へ引き継ぐ
+            key="mksoul_active_checkbox",
             help="MKsoul主催のイベントのみを表示します"
         )
+
+    selected_statuses = []
+    # （これ以降のコードは変更ありませんのでそのままで大丈夫です！）
 
     selected_statuses = []
     if use_on_going:
