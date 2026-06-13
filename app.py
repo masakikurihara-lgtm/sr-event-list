@@ -1083,8 +1083,6 @@ def main():
     use_finished = st.sidebar.checkbox("終了", value=False)
     use_past_bu = st.sidebar.checkbox("終了(BU)", value=False, help="過去のバックアップファイルから取得した終了済みイベント")
 
-    # ⚠️【変更】「イベント名で検索」の text_input はここでは設置せず、下方の else: の中に移動しました。
-
     selected_statuses = []
     if use_on_going:
         selected_statuses.append(status_options["開催中"])
@@ -1093,34 +1091,36 @@ def main():
     if use_finished:
         selected_statuses.append(status_options["終了"])
 
+
+    # 🔄 【追加】チェックボックスが一つも選択されていない（またはBUもない）場合、
+    # 保持されているすべてのフィルター変数を強制的に初期化（リセット）する
     if not selected_statuses and not use_past_bu:
+        # 各コンポーネントのキーを空にする（これでゴースト現象が消えます）
+        st.session_state["filter_search"] = ""
+        st.session_state["filter_start"] = []
+        st.session_state["filter_end"] = []
+        st.session_state["filter_duration"] = []
+        st.session_state["filter_target"] = []
+
         st.warning("表示するステータスをサイドバーで1つ以上選択してください。")
     
     
     # 選択されたステータスに基づいてイベント情報を取得
-    # 辞書を使って重複を確実に排除
     unique_events_dict = {}
-
-    # --- カウント用の変数を初期化（追加） ---
     fetched_count_raw = 0
     past_count_raw = 0
-    fetched_events = []  # 参照安全のため初期化
-    past_events = []     # 参照安全のため初期化
+    fetched_events = []
+    past_events = []
 
     if selected_statuses:
         with st.spinner("イベント情報を取得中..."):
             fetched_events = get_events(selected_statuses)
-            # --- API取得分の「生」件数を保持（変更） ---
             fetched_count_raw = len(fetched_events)
             for event in fetched_events:
-                # --- 変更: event_id を正規化して辞書キーにする ---
                 eid = normalize_event_id_val(event.get('event_id'))
                 if eid is None:
-                    # 無効なIDはスキップ
                     continue
-                # イベントオブジェクト内の event_id も正規化して上書きしておく（以降の処理を安定させるため）
                 event['event_id'] = eid
-                # フェッチ元（API）を優先して格納（上書き可）
                 unique_events_dict[eid] = event
     
     # --- 「終了(BU)」のデータ取得 ---
@@ -1129,10 +1129,9 @@ def main():
             past_events = get_past_events_from_files()
             past_count_raw = len(past_events)
 
-            # ✅ APIで取得した「終了」イベント（status=4）の event_id 一覧を作成
             api_finished_events = []
             try:
-                api_finished_events = get_events([4])  # 明示的に終了ステータスだけ再取得
+                api_finished_events = get_events([4])
             except Exception as ex:
                 st.warning(f"終了イベント情報の取得中にエラーが発生しました: {ex}")
 
@@ -1142,7 +1141,6 @@ def main():
                 if e.get("event_id")
             }
 
-            # ✅ 「終了(BU)」からAPIの「終了」イベントを除外（重複完全排除）
             filtered_past_events = []
             for e in past_events:
                 eid = normalize_event_id_val(e.get("event_id"))
@@ -1155,26 +1153,19 @@ def main():
 
             past_events = filtered_past_events
 
-            # --- 正規化＆辞書格納 ---
             for event in past_events:
                 eid = normalize_event_id_val(event.get('event_id'))
                 if eid is None:
                     continue
                 event['event_id'] = eid
-                # 既に API から取得されたイベントが存在する場合は上書きしない（API 側を優先）
                 if eid not in unique_events_dict:
                     unique_events_dict[eid] = event
 
-
     # 辞書の値をリストに変換して、フィルタリング処理に進む
     all_events = list(unique_events_dict.values())
-    
-    # ✅ 特定イベントを完全除外（フィルタ候補にも残らないように）
     all_events = [e for e in all_events if str(e.get("event_id")) != "12151"]
-    
     original_event_count = len(all_events)
 
-    # --- 取得前の合計（生）件数とユニーク件数の差分を算出（追加） ---
     total_raw = fetched_count_raw + past_count_raw
     unique_total_pre_filter = len(all_events)
     duplicates_removed_pre_filter = max(0, total_raw - unique_total_pre_filter)
@@ -1183,19 +1174,22 @@ def main():
         st.info("該当するイベントはありませんでした。")
         st.stop()
     else:
-        # 🔍【移動・追加】イベントが存在する場合のみ、サイドバーに検索窓を表示する
-        search_query = st.sidebar.text_input("イベント名で検索", value="", placeholder="例: ランウェイ")
+        # ⚠️ レイアウトを元の位置（日付フィルタの上）に戻しました
+        # 🔄 【変更】key="filter_search" を指定して状態管理できるようにしました
+        search_query = st.sidebar.text_input(
+            "イベント名で検索", 
+            value="", 
+            placeholder="例: ランウェイ", 
+            key="filter_search"
+        )
         
-        # 🔍【移動・追加】もし検索ワードが入力されていたら、ここでイベントを絞り込む
+        # もし検索ワードが入力されていたら絞り込む
         if search_query:
             all_events = [
                 e for e in all_events 
                 if search_query.lower() in e.get('event_name', '').lower()
             ]
 
-        # --- reverse制御フラグを定義 ---
-        # 「終了」または「終了(BU)」がチェックされている場合は降順（reverse=True）
-        # それ以外（＝開催中／開催予定のみ）の場合は昇順（reverse=False）
         reverse_sort = (use_finished or use_past_bu)
 
         # --- 開始日フィルタの選択肢を生成 ---
@@ -1203,15 +1197,16 @@ def main():
             datetime.fromtimestamp(e['started_at'], JST).date() for e in all_events if 'started_at' in e
         ])), reverse=reverse_sort)
 
-        # 日付と曜日の辞書を作成
         start_date_options = {
             d.strftime('%Y/%m/%d') + f"({['月', '火', '水', '木', '金', '土', '日'][d.weekday()]})": d
             for d in start_dates
         }
 
+        # 🔄 【変更】key="filter_start" を指定
         selected_start_dates = st.sidebar.multiselect(
             "開始日でフィルタ",
-            options=list(start_date_options.keys())
+            options=list(start_date_options.keys()),
+            key="filter_start"
         )
 
         # --- 終了日フィルタの選択肢を生成 ---
@@ -1224,23 +1219,29 @@ def main():
             for d in end_dates
         }
 
+        # 🔄 【変更】key="filter_end" を指定
         selected_end_dates = st.sidebar.multiselect(
             "終了日でフィルタ",
-            options=list(end_date_options.keys())
+            options=list(end_date_options.keys()),
+            key="filter_end"
         )
 
         # 期間でフィルタ
         duration_options = ["3日以内", "1週間", "10日", "2週間", "その他"]
+        # 🔄 【変更】key="filter_duration" を指定
         selected_durations = st.sidebar.multiselect(
             "期間でフィルタ",
-            options=duration_options
+            options=duration_options,
+            key="filter_duration"
         )
 
         # 対象でフィルタ
         target_options = ["全ライバー", "対象者限定"]
+        # 🔄 【変更】key="filter_target" を指定
         selected_targets = st.sidebar.multiselect(
             "対象でフィルタ",
-            options=target_options
+            options=target_options,
+            key="filter_target"
         )
         
         # 認証されていればダウンロードボタンとタイムスタンプ変換機能をここに配置
