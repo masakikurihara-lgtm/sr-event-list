@@ -25,6 +25,8 @@ API_EVENT_ROOM_LIST_URL = "https://www.showroom-live.com/api/event/room_list"
 EVENT_PAGE_BASE_URL = "https://www.showroom-live.com/event/"
 # MKsoulルームリスト
 ROOM_LIST_URL = "https://mksoul-pro.com/showroom/file/room_list.csv"
+# 手動設定の認証用ルームリスト
+AUTH_LIST_MANUAL_URL = "https://mksoul-pro.com/showroom/file/authenticated_list_001.csv"
 # 過去イベントデータファイルのURLを格納しているインデックスファイルのURL
 PAST_EVENT_INDEX_URL = "https://mksoul-pro.com/showroom/file/sr-event-archive-list-index.txt"
 
@@ -1040,14 +1042,34 @@ def main():
                     st.rerun()
                 else:
                     try:
-                        response = requests.get(ROOM_LIST_URL, timeout=5)
-                        response.raise_for_status()
-                        # room_df = pd.read_csv(io.StringIO(response.text), header=None)
-                        import pandas # 念のためこの行の直前か、ファイル冒頭に入れておく
-                        room_df = pandas.read_csv(io.StringIO(response.text), header=None)
-    
-                        valid_codes = set(str(x).strip() for x in room_df.iloc[:, 0].dropna())
-    
+                        # 有効な認証コードを格納するセット
+                        valid_codes = set()
+
+                        # 1️⃣ 既存のルームリスト(自動CSV)の取得と読み込み
+                        try:
+                            response1 = requests.get(ROOM_LIST_URL, timeout=5)
+                            response1.raise_for_status()
+                            import pandas
+                            room_df = pandas.read_csv(io.StringIO(response1.text), header=None)
+                            valid_codes.update(str(x).strip() for x in room_df.iloc[:, 0].dropna())
+                        except Exception as e:
+                            st.warning(f"⚠️ 自動認証リストの取得に失敗しました: {e}")
+
+                        # 2️⃣ 手動ルームリスト(手動CSV)の取得と読み込み【追加】
+                        try:
+                            response2 = requests.get(AUTH_LIST_MANUAL_URL, timeout=5)
+                            response2.raise_for_status()
+                            import pandas
+                            manual_df = pandas.read_csv(io.StringIO(response2.text), header=None)
+                            valid_codes.update(str(x).strip() for x in manual_df.iloc[:, 0].dropna())
+                        except Exception as e:
+                            st.warning(f"⚠️ 手動認証リストの取得に失敗しました: {e}")
+
+                        # どちらのCSVからもデータが取れなかった場合のみエラーにする
+                        if not valid_codes:
+                            raise Exception("すべての認証リストが空、または取得できませんでした。")
+
+                        # 3️⃣ 突き合わせ判定
                         if input_room_id.strip() in valid_codes:
                             st.session_state.authenticated = True
                             st.success("✅ 認証に成功しました。ツールを利用できます。")
@@ -1055,7 +1077,7 @@ def main():
                         else:
                             st.error("❌ 認証コードが無効です。正しい認証コードを入力してください。")
                     except Exception as e:
-                        st.error(f"認証リストを取得できませんでした: {e}")
+                        st.error(f"認証システムエラー: {e}")
             else:
                 st.warning("認証コードを入力してください。")
                 
