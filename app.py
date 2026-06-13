@@ -1115,6 +1115,9 @@ def main():
     use_finished = st.sidebar.checkbox("終了", value=False)
     use_past_bu = st.sidebar.checkbox("終了(BU)", value=False, help="過去のバックアップファイルから取得した終了済みイベント")
 
+    # 🚀【追加】自社イベントのみに絞り込むチェックボックス
+    use_mksoul_only = st.sidebar.checkbox("MKsoul開催", value=False, help="自社開催のイベントのみを表示します")
+
     selected_statuses = []
     if use_on_going:
         selected_statuses.append(status_options["開催中"])
@@ -1201,6 +1204,45 @@ def main():
     total_raw = fetched_count_raw + past_count_raw
     unique_total_pre_filter = len(all_events)
     duplicates_removed_pre_filter = max(0, total_raw - unique_total_pre_filter)
+
+    # 🚀【追加】「MKsoul開催」チェックボックスがONの場合の絞り込み処理
+    if use_mksoul_only:
+        specific_event_keys = {
+            "gb-prj",
+            "mksoul-pr_202206-2w",
+            "mksoul-pr_202206-1w",
+            "mksoul-pr_202205-2w",
+            "mksoul-pr_202205-1w",
+            "mksoul-pr_202204-2w",
+            "mksoul-pr_202204-1w",
+            "mksoul-pr_202203-2w",
+            "mksoul-pr_202203-1w",
+            "mksoul-pr_202202-2w",
+            "mksoul-pr_202202-1w",
+            "mksoul-pr_202112",
+            "v-soul_2021_0",
+            "v-soul_2021_5",
+            "v-soul_2021_4",
+            "v-soul_2021_3",
+            "v-soul_2021_2",
+            "v-soul_2021_1",
+            "v-soul_2021_6",
+            "mksoul-mv_2021-summer",
+            "mksoul-music_2021-summer",
+            "mksoul-produce_003",
+            "inochi-kizuna_vo",
+            "inochi-kizuna_mv"
+        }
+        
+        filtered_mksoul = []
+        for e in all_events:
+            url_key = str(e.get("event_url_key", "")).strip()
+            
+            # 条件①: mk- で始まる、または 条件②: 指定された個別URLキーに完全一致する
+            if url_key.startswith("mk-") or url_key in specific_event_keys:
+                filtered_mksoul.append(e)
+                
+        all_events = filtered_mksoul
 
     if not all_events:
         st.info("該当するイベントはありませんでした。")
