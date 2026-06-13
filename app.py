@@ -1118,21 +1118,21 @@ def main():
     # 🚀【修正】ベースとなるステータスが1つでもONになっているか判定
     any_status_selected = use_on_going or use_upcoming or use_finished or use_past_bu
 
-    # 🚀【修正】いずれも選択されていない場合は強制的にFalseにし、disabled（非活性）にする
-    # （これを行わないと、グレーアウトしたままチェックだけが残るゴースト現象が起きます）
+    # 🚀【バグ修正】非活性化と活性化のコードを統合し、同じkeyで状態を完全に管理します
     if not any_status_selected:
-        use_mksoul_only = st.sidebar.checkbox(
-            "MKsoul開催", 
-            value=False, 
-            disabled=True, 
-            help="表示するステータス（開催中など）を先に選択してください"
-        )
-    else:
-        # ステータスが選択されている時だけ通常通り活性化
         use_mksoul_only = st.sidebar.checkbox(
             "MKsoul主催", 
             value=False, 
-            key="mksoul_active_checkbox", # 状態保持のためのキー
+            disabled=True, 
+            key="mksoul_active_checkbox", # 👈 キーを統一してゴースト現象を完全に防止
+            help="表示するステータス（開催中など）を先に選択してください"
+        )
+    else:
+        use_mksoul_only = st.sidebar.checkbox(
+            "MKsoul主催", 
+            value=False, 
+            disabled=False,
+            key="mksoul_active_checkbox", # 👈 同一のキーで活性化状態へ引き継ぐ
             help="MKsoul主催のイベントのみを表示します"
         )
 
