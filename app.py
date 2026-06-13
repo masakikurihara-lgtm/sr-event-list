@@ -1083,6 +1083,8 @@ def main():
     use_finished = st.sidebar.checkbox("終了", value=False)
     use_past_bu = st.sidebar.checkbox("終了(BU)", value=False, help="過去のバックアップファイルから取得した終了済みイベント")
 
+    # 🔍 【追加】イベント名検索用のテキスト入力欄を設置
+    search_query = st.sidebar.text_input("イベント名で検索", value="", placeholder="例: ランウェイ")
 
     selected_statuses = []
     if use_on_going:
@@ -1170,6 +1172,14 @@ def main():
     
     # ✅ 特定イベントを完全除外（フィルタ候補にも残らないように）
     all_events = [e for e in all_events if str(e.get("event_id")) != "12151"]
+    
+    # 🔍 【追加】入力された文字列でイベント名をあいまい検索（部分一致）
+    if search_query:
+        # e.get('event_name', '') の 'event_name' 部分は、実際のイベント名が入っているキー名に合わせてください
+        all_events = [
+            e for e in all_events 
+            if search_query.lower() in e.get('event_name', '').lower()
+        ]
     
     original_event_count = len(all_events)
 
