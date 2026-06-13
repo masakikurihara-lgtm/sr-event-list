@@ -212,12 +212,22 @@ def update_archive_file():
     else:
         old_df = pd.DataFrame(columns=new_df.columns)
 
-    # 結合＋重複除外
-    merged_df = pd.concat([old_df, new_df], ignore_index=True)
+    # 🔄 【修正】他ツールの追加項目（total_entriesなど）を消さずに結合するロジック
     before_count = len(old_df)
-    merged_df.drop_duplicates(subset=["event_id"], keep="last", inplace=True)
+    
+    if not old_df.empty:
+        # 重複除外やマージを確実にするため、一度 event_id をインデックス（基準）にする
+        new_df.set_index("event_id", inplace=True)
+        old_df.set_index("event_id", inplace=True)
+        
+        # combine_firstにより、ベースは新しいAPIデータ(new_df)に更新しつつ、
+        # new_dfに存在しない列(total_entries等)は古いデータ(old_df)の値をそのまま引き継ぐ
+        merged_df = new_df.combine_first(old_df).reset_index()
+    else:
+        merged_df = new_df
+
     after_count = len(merged_df)
-    added_count = after_count - before_count  # ←このままでOK（マイナスも許容）
+    added_count = after_count - before_count
 
     # 上書きアップロード
     st.info("☁️ FTPサーバーへアップロード中...")
