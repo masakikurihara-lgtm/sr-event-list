@@ -1115,8 +1115,26 @@ def main():
     use_finished = st.sidebar.checkbox("終了", value=False)
     use_past_bu = st.sidebar.checkbox("終了(BU)", value=False, help="過去のバックアップファイルから取得した終了済みイベント")
 
-    # 🚀【追加】自社イベントのみに絞り込むチェックボックス
-    use_mksoul_only = st.sidebar.checkbox("MKsoul主催", value=False, help="MKsoul主催のイベントのみを表示します")
+    # 🚀【修正】ベースとなるステータスが1つでもONになっているか判定
+    any_status_selected = use_on_going or use_upcoming or use_finished or use_past_bu
+
+    # 🚀【修正】いずれも選択されていない場合は強制的にFalseにし、disabled（非活性）にする
+    # （これを行わないと、グレーアウトしたままチェックだけが残るゴースト現象が起きます）
+    if not any_status_selected:
+        use_mksoul_only = st.sidebar.checkbox(
+            "MKsoul開催", 
+            value=False, 
+            disabled=True, 
+            help="表示するステータス（開催中など）を先に選択してください"
+        )
+    else:
+        # ステータスが選択されている時だけ通常通り活性化
+        use_mksoul_only = st.sidebar.checkbox(
+            "MKsoul主催", 
+            value=False, 
+            key="mksoul_active_checkbox", # 状態保持のためのキー
+            help="MKsoul主催のイベントのみを表示します"
+        )
 
     selected_statuses = []
     if use_on_going:
