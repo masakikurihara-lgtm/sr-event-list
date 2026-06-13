@@ -1116,7 +1116,7 @@ def main():
     use_past_bu = st.sidebar.checkbox("終了(BU)", value=False, help="過去のバックアップファイルから取得した終了済みイベント")
 
     # 🚀【追加】自社イベントのみに絞り込むチェックボックス
-    use_mksoul_only = st.sidebar.checkbox("MKsoul開催", value=False, help="自社開催のイベントのみを表示します")
+    use_mksoul_only = st.sidebar.checkbox("MKsoul主催", value=False, help="MKsoul主催のイベントのみを表示します")
 
     selected_statuses = []
     if use_on_going:
