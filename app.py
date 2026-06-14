@@ -1275,9 +1275,9 @@ def main():
         # ⚠️ レイアウトを元の位置（日付フィルタの上）に戻しました
         # 🔄 【変更】key="filter_search" を指定して状態管理できるようにしました
         search_query = st.sidebar.text_input(
-            "イベント名で検索", 
+            "キーワード検索", 
             value="", 
-            placeholder="例: ランウェイ", 
+            placeholder="例: 出演", 
             key="filter_search"
         )
         
